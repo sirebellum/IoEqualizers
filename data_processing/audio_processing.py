@@ -4,17 +4,59 @@ import json
 import os
 import scipy.io.wavfile
 import numpy as np
+import matplotlib.pyplot as plt
 
-#Converts WAV file into frequency spectrum
-#frame_size  : how many ms for fft window
-#frame_stride: how many ms for fft window slide increment
-#nfilters    : number of filter banks
-#crop        : how many seconds to crop input file to
+# Plot spectrum picture
+def plotSpectrum(data):
+    fig, ax = plt.subplots(figsize=(data[:,1].size, data[0].size), dpi=1)
+    x, y = np.mgrid[:data[:,1].size, #Number of frames
+                       :data[0].size]   #Number of filter banks
+    ax.pcolormesh(x, y, data) #create color mesh of audio signal
+    
+    for item in [fig, ax]: #remove frame
+        item.patch.set_visible(False)
+    ax.set_axis_off() #remove axes
+    
+
+# Convert fft to filter banks
+def computeFB(sample_rate, nfilters, pow_frames, NFFT):
+    ###Filter Banks
+    low_freq_mel = 0
+    high_freq_mel = (2595 * np.log10(1 + (sample_rate / 2) / 700))  # Convert Hz to Mel
+    mel_points = np.linspace(low_freq_mel, high_freq_mel, nfilters + 2)  # Equally spaced in Mel scale
+    hz_points = (700 * (10**(mel_points / 2595) - 1))  # Convert Mel to Hz
+    bin = np.floor((NFFT + 1) * hz_points / sample_rate)
+
+    fbank = np.zeros((nfilters, int(np.floor(NFFT / 2 + 1))))
+    for m in range(1, nfilters + 1):
+        f_m_minus = int(bin[m - 1])   # left
+        f_m = int(bin[m])             # center
+        f_m_plus = int(bin[m + 1])    # right
+
+        for k in range(f_m_minus, f_m):
+            fbank[m - 1, k] = (k - bin[m - 1]) / (bin[m] - bin[m - 1])
+        for k in range(f_m, f_m_plus):
+            fbank[m - 1, k] = (bin[m + 1] - k) / (bin[m + 1] - bin[m])
+    filter_banks = np.dot(pow_frames, fbank.T)
+    filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  # Numerical Stability
+    filter_banks = 20 * np.log10(filter_banks)  # dB
+    filter_banks -= (np.mean(filter_banks, axis=0) + 1e-8) # Mean norm
+    
+    return filter_banks
+
+    
+# Converts WAV file into frequency spectrum
+# frame_size  : how many ms for fft window
+# frame_stride: how many ms for fft window slide increment
+# crop        : how many seconds to crop input file to
+# NFFT        : how many frequency bins
+# visualize   : to visualize or not to visualize, that is the question
 def convertWav(filename, \
                frame_size=0.025, \
                frame_stride=0.01, \
-               nfilters=40, \
-               crop=4):
+               crop=4, \
+               NFFT=512, \
+               visualize=False):
 
     sample_rate, signal = scipy.io.wavfile.read(filename)
     signal = signal[0:int(crop * sample_rate)] #crop to crop seconds default 4
@@ -43,35 +85,22 @@ def convertWav(filename, \
     # frames *= 0.54 - 0.46 * np.cos((2 * np.pi * n) / (frame_length - 1))  # Explicit Implementation **
 
     ###FFT
-    NFFT = 512
-    mag_frames = np.absolute(np.fft.rfft(frames, NFFT))  # Magnitude of the FFT
-    pow_frames = ((1.0 / NFFT) * ((mag_frames) ** 2))  # Power Spectrum
-
-    ###Filter Banks
-    low_freq_mel = 0
-    high_freq_mel = (2595 * np.log10(1 + (sample_rate / 2) / 700))  # Convert Hz to Mel
-    mel_points = np.linspace(low_freq_mel, high_freq_mel, nfilters + 2)  # Equally spaced in Mel scale
-    hz_points = (700 * (10**(mel_points / 2595) - 1))  # Convert Mel to Hz
-    bin = np.floor((NFFT + 1) * hz_points / sample_rate)
-
-    fbank = np.zeros((nfilters, int(np.floor(NFFT / 2 + 1))))
-    for m in range(1, nfilters + 1):
-        f_m_minus = int(bin[m - 1])   # left
-        f_m = int(bin[m])             # center
-        f_m_plus = int(bin[m + 1])    # right
-
-        for k in range(f_m_minus, f_m):
-            fbank[m - 1, k] = (k - bin[m - 1]) / (bin[m] - bin[m - 1])
-        for k in range(f_m, f_m_plus):
-            fbank[m - 1, k] = (bin[m + 1] - k) / (bin[m + 1] - bin[m])
-    filter_banks = np.dot(pow_frames, fbank.T)
-    filter_banks = np.where(filter_banks == 0, np.finfo(float).eps, filter_banks)  # Numerical Stability
-    filter_banks = 20 * np.log10(filter_banks)  # dB
-
-    ###Mean Normalization
-    filter_banks -= (np.mean(filter_banks, axis=0) + 1e-8)
-
-    return filter_banks
+    mag_frames_raw = np.absolute(np.fft.rfft(frames, NFFT))  # Magnitude of the FFT
+    pow_frames_raw = ((1.0 / NFFT) * ((mag_frames_raw) ** 2))  # Power Spectrum
+    
+    ###dB
+    mag_frames = 20 * np.log10(mag_frames_raw)
+    pow_frames = 20 * np.log10(pow_frames_raw)
+    
+    if visualize:
+        ###Plot
+        plotSpectrum(pow_frames)
+        plotSpectrum(mag_frames)
+        plotSpectrum(computeFB(sample_rate, 40, pow_frames_raw, NFFT))
+        
+        plt.show()
+    
+    return pow_frames
 
 
 # Class for accessing files in the nsynth dataset
