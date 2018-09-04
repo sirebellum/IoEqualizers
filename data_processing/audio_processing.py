@@ -57,13 +57,17 @@ def convertWav(input, \
                frame_stride=0.01, \
                crop=4, \
                NFFT=512, \
-               visualize=True):
+               visualize=False):
 
+    signal = input
     # If filename supplied
     if sample_rate is None:
         sample_rate, signal = scipy.io.wavfile.read(input)
     
-    signal = signal[0:int(crop * sample_rate)] #crop to crop seconds default 4
+    # If sample longer than crop size
+    duration = len(signal) / sample_rate
+    if duration > crop:
+        signal = signal[0:int(crop * sample_rate)] #crop to crop seconds default 4
 
     ###Pre-emphasize signal
     PRE_EMPHASIS = 0.97
@@ -93,13 +97,13 @@ def convertWav(input, \
     pow_frames_raw = ((1.0 / NFFT) * ((mag_frames_raw) ** 2))  # Power Spectrum
     
     ###dB
-    mag_frames = 20 * np.log10(mag_frames_raw)
+    #mag_frames = 20 * np.log10(mag_frames_raw)
     pow_frames = 20 * np.log10(pow_frames_raw)
     
     if visualize:
         ###Plot
         plotSpectrum(pow_frames)
-        plotSpectrum(mag_frames)
+        #plotSpectrum(mag_frames)
         plotSpectrum(computeFB(sample_rate, 40, pow_frames_raw, NFFT))
         
         plt.show()
