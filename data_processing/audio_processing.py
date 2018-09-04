@@ -56,7 +56,7 @@ def convertWav(input, \
                frame_size=0.025, \
                frame_stride=0.01, \
                crop=4, \
-               NFFT=512, \
+               NFFT=256, \
                visualize=False):
 
     signal = input
@@ -86,7 +86,7 @@ def convertWav(input, \
 
     indices = np.tile(np.arange(0, frame_length), (num_frames, 1)) + np.tile(np.arange(0, num_frames * frame_step, frame_step), (frame_length, 1)).T
     frames = pad_signal[indices.astype(np.int32, copy=False)]
-
+    
     ###Window filter
     frames_unfiltered= frames.copy()
     frames *= np.hamming(frame_length)
