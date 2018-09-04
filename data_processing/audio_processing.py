@@ -45,20 +45,24 @@ def computeFB(sample_rate, nfilters, pow_frames, NFFT):
     return filter_banks
 
     
-# Converts WAV file into frequency spectrum
+# Converts WAV file or audio array into frequency spectrum
 # frame_size  : how many ms for fft window
 # frame_stride: how many ms for fft window slide increment
 # crop        : how many seconds to crop input file to
 # NFFT        : how many frequency bins
 # visualize   : to visualize or not to visualize, that is the question
-def convertWav(filename, \
+def convertWav(input, \
+               sample_rate=None, \
                frame_size=0.025, \
                frame_stride=0.01, \
                crop=4, \
                NFFT=512, \
-               visualize=False):
+               visualize=True):
 
-    sample_rate, signal = scipy.io.wavfile.read(filename)
+    # If filename supplied
+    if sample_rate is None:
+        sample_rate, signal = scipy.io.wavfile.read(input)
+    
     signal = signal[0:int(crop * sample_rate)] #crop to crop seconds default 4
 
     ###Pre-emphasize signal
