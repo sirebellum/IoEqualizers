@@ -6,6 +6,21 @@ import scipy.io.wavfile
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Plot BW spectrum picture
+def plotSpectrumBW(data):
+    
+    # Convert infinity values to max/min values
+    data[data == float('-inf')] = data[data > float('-inf')].min()
+    data[data == float('+inf')] = data[data < float('+inf')].max()
+    
+    # Scale to rgb values
+    data = np.interp(data, (data.min(), data.max()), (0, 255))
+    
+    # Round to uint values
+    data = np.round(data).astype(np.uint8)
+    
+    return data
+    
 # Plot spectrum picture
 def plotSpectrum(data):
     fig, ax = plt.subplots(figsize=(data[:,1].size, data[0].size), dpi=1)
@@ -16,7 +31,6 @@ def plotSpectrum(data):
     for item in [fig, ax]: #remove frame
         item.patch.set_visible(False)
     ax.set_axis_off() #remove axes
-    
 
 # Convert fft to filter banks
 def computeFB(sample_rate, nfilters, pow_frames, NFFT):
@@ -116,38 +130,74 @@ class nsynth:
 
     def __init__(self, directory):
 
-        # Path to dataset relative to this file
-        self.directory = os.path.join(os.path.dirname(__file__), directory)
+        self.clmns= ["note",
+            "note_str",
+            "instrument",
+            "instrument_str",
+            "pitch",
+            "velocity",
+            "sample_rate",
+            "qualities",
+            "qualities_str",
+            "instrument_family",
+            "instrument_family_str",
+            "instrument_source",
+            "instrument_source_str"]
     
-        # Get annotations from json file
-        json_file = os.path.join(directory, "examples.json")
+        # Path to dataset relative to this file
+        abs_path = os.path.abspath(__file__) # Absolute path of this file
+        self.directory = os.path.join(os.path.dirname(abs_path), directory)
+    
+        # Prepare data for accessing wav files / annotations
+        json_file = os.path.join(self.directory, "examples.json")
         with open(json_file, 'r') as f:
             annotations = json.load(f)
-            
-        # Basic dataset stats
+        self.filenames = [ filename for filename in annotations ]
+        self.wav_dir = os.path.join(self.directory, "audio")
+        
+        # Prepare data for storing wav files / annotations
+        self.dataset = {}
+        for clmn in self.clmns:
+            self.dataset[clmn] = [ annotations[key][clmn] for key in annotations ]
+        self.dataset['filename'] = self.filenames # Add filenames
+        
+        # Access stats
         self.num_instances = len(annotations)
+        self.num_accessed = 0 # Increments for every accessed instance
         
-        # Convert Nsynth wavfiles to filter banks
-        wav_dir = os.path.join(self.directory, "audio")
-        self.filter_banks = [ convertWav(os.path.join(wav_dir, wavfile+".wav")) \
-                                for wavfile in annotations ]
-        
-        
-        
-        #import ipdb; ipdb.set_trace()
-        
-        
-    # Parse and process nsynth instance labels
-    def processNsynth(self, instance):
     
-        return None
+    # Return next num instances
+    def returnInstance(self, num):
+    
+        upper = self.num_accessed + num # upper access index
+        # Convert Nsynth wavfiles to fft spectrums
+        ffts = [ convertWav(os.path.join(self.wav_dir, self.filenames[x]+".wav")) \
+                                for x in range(self.num_accessed, upper) \
+                                if self.num_accessed+x <= self.num_instances ]
+        # Slice correct number of labels     
+        data = {}
+        for clmn in self.clmns:
+            data[clmn] = self.dataset[clmn][self.num_accessed:upper]
+        data['fft'] = ffts
+        
+        # Increment
+        self.num_accessed += num
+    
+        return data
 
         
 def main():
+    from PIL import Image
     # nsynth dataset top directory
     dir = "nsynth/nsynth-test/"
     dataset_test = nsynth(dir)
 
+    batch = dataset_test.returnInstance(15)
+    images = [ plotSpectrumBW(image) for image in batch['fft'] ]
+
+    for image in images:
+        img = Image.fromarray(image, 'L')
+        img.show()
 
 if __name__ == "__main__":
     main()
