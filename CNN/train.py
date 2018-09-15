@@ -33,12 +33,16 @@ def tfrecord_input():
   batch_size=256
 
   # Import data
-  dataset = tf.data.TFRecordDataset(train_filenames)
+  dataset = tf.data.TFRecordDataset(
+        train_filenames,
+        num_parallel_reads=4,
+        buffer_size=1000*1000*128) # 128mb of io cache
 
   # Map the parser over dataset, and batch results by up to batch_size
-  dataset = dataset.map(parse_record)
+  dataset = dataset.map(parse_record, num_parallel_calls=4)
   dataset = dataset.batch(batch_size)
   dataset = dataset.repeat()
+  dataset = dataset.prefetch(batch_size*2) # Prefetch 2 batches at a time
   #print("Dataset:", dataset.output_shapes, ":::", dataset.output_types)
   iterator = dataset.make_one_shot_iterator()
 
@@ -58,17 +62,17 @@ def parse_record(serialized_example): #parse a single binary example
   
 
 def main(unused_argv):
-
-    # Set up data
-    train_data = ap.nsynth("nsynth/nsynth-train/")
+  
+    # input
+    train_input_fn = tfrecord_input
   
     # Define params for model
     params = {}
-    params['num_labels'] = 1
+    params['num_labels'] = 0
 
     # Estimator config to change frequency of ckpt files
     estimator_config = tf.estimator.RunConfig(
-    save_checkpoints_secs = 10,  # Save checkpoints every 10 seconds
+    save_checkpoints_secs = 60*5,  # Save checkpoints every 5 minutes
     keep_checkpoint_max = 2)       # Retain the 2 most recent checkpoints.
 
     # Create the Estimator
@@ -77,9 +81,6 @@ def main(unused_argv):
     model_dir=CWD_PATH+"/models/"+args.output_name,
     config=estimator_config,
     params=params)
-  
-    # input
-    train_input_fn = tfrecord_input
     
     classifier.train(
         input_fn=train_input_fn,
