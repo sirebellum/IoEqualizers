@@ -4,6 +4,7 @@ import os
 import argparse
 import tensorflow as tf
 import data_processing.audio_processing as ap
+import glob
 
 # Autoencoders
 from autoencoders import conv, vanilla
@@ -22,6 +23,39 @@ args = parser.parse_args()
 num_steps = int(args.steps)
 
 CWD_PATH = os.getcwd()
+
+# Define the input function for training
+def tfrecord_input():
+
+  # Keep list of filenames, so you can input directory of tfrecords easily
+  train_filenames = glob.glob("data_processing/nsynth/train*tfrecords")
+  valid_filenames = glob.glob("data_processing/nsynth/valid*tfrecords")
+  batch_size=256
+
+  # Import data
+  dataset = tf.data.TFRecordDataset(train_filenames)
+
+  # Map the parser over dataset, and batch results by up to batch_size
+  dataset = dataset.map(parse_record)
+  dataset = dataset.batch(batch_size)
+  dataset = dataset.repeat()
+  #print("Dataset:", dataset.output_shapes, ":::", dataset.output_types)
+  iterator = dataset.make_one_shot_iterator()
+
+  features = iterator.get_next()
+  #print("Iterator:", features)
+
+  return (features)
+  
+def parse_record(serialized_example): #parse a single binary example
+  """Parses a single tf.Example into image and label tensors."""
+  features = {'X': tf.FixedLenFeature([1, 12544], tf.float32)}
+  feature = tf.parse_single_example(serialized_example, features)
+  
+  image = tf.reshape(feature['X'], (112, 112))
+  
+  return (image)
+  
 
 def main(unused_argv):
 
@@ -44,35 +78,13 @@ def main(unused_argv):
     config=estimator_config,
     params=params)
   
-    # Train
-    train_images = [0]
-    while len(train_images) > 0:
-  
-        batch = train_data.returnInstance(12800)
-        train_images = [ ap.plotSpectrumBW(image) for image in batch['fft'] ]
-        train_images = np.asarray(train_images, dtype=np.float16)
-        train_images *= 1/255.0
-  
-        train_input_fn = \
-               tf.estimator.inputs.numpy_input_fn(train_images,
-                                                  batch_size=128,
-                                                  num_epochs=1,
-                                                  shuffle=True,
-                                                  queue_capacity=1024,
-                                                  num_threads=2)
+    # input
+    train_input_fn = tfrecord_input
+    
+    classifier.train(
+        input_fn=train_input_fn,
+        steps=num_steps)
 
-        # Set up logging for predictions
-        #tensors_to_log = {"predictions": "image_output"}
-        #logging_hook = tf.train.LoggingTensorHook(
-        #    tensors=tensors_to_log, every_n_iter=50)
-          
-        # Train the model
-        classifier.train(
-            input_fn=train_input_fn,
-            steps=None)
-            
-        del batch
-        del train_images
 
 if __name__ == "__main__":
   tf.app.run()
