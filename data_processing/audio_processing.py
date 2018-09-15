@@ -6,7 +6,7 @@ import scipy.io.wavfile
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Plot BW spectrum picture
+# Plot BW spectrum picture. Removes infinities
 def plotSpectrumBW(data):
     
     # Convert infinity values to max/min values
@@ -19,7 +19,8 @@ def plotSpectrumBW(data):
     # Round to uint values
     data = np.round(data).astype(np.uint8)
     
-    return data
+    # Slice to make even square
+    return data[0:112, 0:112]
     
 # Plot spectrum picture
 def plotSpectrum(data):
@@ -195,6 +196,7 @@ def main():
     batch = dataset_test.returnInstance(15)
     images = [ plotSpectrumBW(image) for image in batch['fft'] ]
 
+    #import ipdb; ipdb.set_trace()
     for image in images:
         img = Image.fromarray(image, 'L')
         img.show()
