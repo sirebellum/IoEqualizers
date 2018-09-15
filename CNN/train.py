@@ -71,10 +71,8 @@ def main(unused_argv):
             input_fn=train_input_fn,
             steps=None)
             
-        batch = train_data.returnInstance(12800)
-        train_images = [ ap.plotSpectrumBW(image) for image in batch['fft'] ]
-        train_images = np.asarray(train_images, dtype=np.float16)
-        train_images *= 1/255.0
+        del batch
+        del train_images
 
 if __name__ == "__main__":
   tf.app.run()
