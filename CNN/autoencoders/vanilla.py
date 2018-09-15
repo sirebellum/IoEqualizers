@@ -4,21 +4,21 @@ def encode(features, labels, mode, params):
 
   # Input Layer
   print("Mode:", mode)
-  input_layer = tf.reshape(features, [-1, 28, 28, 1], name="image_input")
+  input_layer = tf.reshape(features, [-1, 112, 112, 1], name="image_input")
   
   # Hidden Layer
-  flattened = tf.reshape(input_layer, [-1, 784])
-  hidden_layer = tf.layers.dense(inputs=flattened, units=64, activation=tf.nn.relu)
+  flattened = tf.reshape(input_layer, [-1, 12544])
+  hidden_layer = tf.layers.dense(inputs=flattened, units=1024, activation=tf.nn.relu)
   
   # Decoding Layer
-  output_layer = tf.layers.dense(inputs=hidden_layer, units=784, activation=tf.nn.relu)
+  output_layer = tf.layers.dense(inputs=hidden_layer, units=12544, activation=tf.nn.relu)
   
   # Reshape to image
-  reconstructed = tf.reshape(output_layer, [-1, 28, 28, 1], name="image_output")
+  reconstructed = tf.reshape(output_layer, [-1, 112, 112, 1], name="image_output")
   
   # Calculate Loss
-  loss = tf.losses.mean_squared_error(labels=flattened,
-                                      predictions=output_layer)
+  loss = tf.losses.mean_squared_error(labels=input_layer,
+                                      predictions=reconstructed)
                                    
   # Put images in tensorboard
   if mode == tf.estimator.ModeKeys.TRAIN:
