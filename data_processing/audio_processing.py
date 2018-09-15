@@ -33,6 +33,7 @@ def plotSpectrum(data):
         item.patch.set_visible(False)
     ax.set_axis_off() #remove axes
 
+
 # Convert fft to filter banks
 def computeFB(sample_rate, nfilters, pow_frames, NFFT):
     ###Filter Banks
@@ -123,6 +124,8 @@ def convertWav(input, \
         
         plt.show()
     
+    #filter_banks = computeFB(sample_rate, 28, pow_frames_raw, NFFT)
+    
     return pow_frames
 
 
@@ -169,12 +172,13 @@ class nsynth:
     
     # Return next num instances
     def returnInstance(self, num):
-    
+      if self.num_accessed < self.num_instances:
+      
         upper = self.num_accessed + num # upper access index
         # Convert Nsynth wavfiles to fft spectrums
         ffts = [ convertWav(os.path.join(self.wav_dir, self.filenames[x]+".wav")) \
                                 for x in range(self.num_accessed, upper) \
-                                if self.num_accessed+x <= self.num_instances ]
+                                if x < self.num_instances ]
         # Slice correct number of labels     
         data = {}
         for clmn in self.clmns:
@@ -185,6 +189,8 @@ class nsynth:
         self.num_accessed += num
     
         return data
+        
+      else: return None
 
         
 def main():
