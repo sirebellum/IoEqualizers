@@ -36,9 +36,14 @@ def encode(features, labels, mode, params):
                                    
     # Put images in tensorboard
     tf.summary.image(
-        "Image",
+        "original",
+        input_layer,
+        max_outputs=9
+      )
+    tf.summary.image(
+        "reconstructed",
         reconstructed,
-        max_outputs=18
+        max_outputs=9
       )
     
     # Configure the Training Op (for TRAIN mode)
