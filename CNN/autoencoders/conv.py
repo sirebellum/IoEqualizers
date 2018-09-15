@@ -4,7 +4,7 @@ def encode(features, labels, mode, params):
 
     # Input Layer
     print("Mode:", mode)
-    input_layer = tf.reshape(features, [-1, 28, 28, 1], name="image_input")
+    input_layer = tf.reshape(features, [-1, 112, 112, 1], name="image_input")
 
     # Encoder
     conv1_1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same')(input_layer)
@@ -25,7 +25,7 @@ def encode(features, labels, mode, params):
     conv2_2 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same')(up1)
     up2 = tf.keras.layers.UpSampling2D((2, 2))(conv2_2)
     conv2_3 = tf.layers.Conv2D(16, (3, 3), activation='relu')(up2)
-    up3 = tf.keras.layers.UpSampling2D((2, 2))(conv2_3)
+    up3 = tf.image.resize_nearest_neighbor(conv2_3, [112, 112])
     reconstructed = tf.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same', 
                                      activity_regularizer=tf.nn.l2_loss,
                                      name='reconstructed_image')(up3)
