@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 def gaussian_noise_layer(input_layer, std):
-    noise = tf.random_normal(shape=tf.shape(input_layer), mean=0.0, stddev=std, dtype=tf.float32) 
+    noise = tf.random_normal(shape=tf.shape(input_layer), mean=0.15, stddev=std, dtype=tf.float32) 
     return input_layer + noise
 
 def encode(features, labels, mode, params):
@@ -11,7 +11,7 @@ def encode(features, labels, mode, params):
     input_layer = tf.reshape(features, [-1, 112, 112, 1], name="image_input")
     
     # Add noise
-    noisy_layer = gaussian_noise_layer(input_layer, 0.1)
+    noisy_layer = gaussian_noise_layer(input_layer, 0.02)
 
     # Encoder
     conv1_1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same')(noisy_layer)
@@ -43,6 +43,11 @@ def encode(features, labels, mode, params):
                                    
     # Put images in tensorboard
     tf.summary.image(
+        "original",
+        input_layer,
+        max_outputs=9
+      )
+    tf.summary.image(
         "noisy",
         noisy_layer,
         max_outputs=9
@@ -56,7 +61,7 @@ def encode(features, labels, mode, params):
     # Configure the Training Op (for TRAIN mode)
     if mode == tf.estimator.ModeKeys.TRAIN:
         # reducing e to 0.0001 midway through training increases accuracy
-        optimizer = tf.train.AdamOptimizer(epsilon=0.0001)
+        optimizer = tf.train.AdamOptimizer(epsilon=0.000001)
         train_op = optimizer.minimize(
                     loss=loss,
                     global_step=tf.train.get_global_step())
