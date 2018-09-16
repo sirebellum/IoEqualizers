@@ -7,10 +7,10 @@ import data_processing.audio_processing as ap
 import glob
 
 # Autoencoders
-from autoencoders import conv, vanilla
+from autoencoders import conv, vanilla, convnoise
 
 # which model to use
-cnn_model = conv.encode
+cnn_model = convnoise.encode
 
 tf.logging.set_verbosity(tf.logging.WARN)
 #DEBUG, INFO, WARN, ERROR, or FATAL
