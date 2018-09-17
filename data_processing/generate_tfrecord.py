@@ -121,8 +121,7 @@ def generate(path_to_write, dataset_dir):
         labels = list( zip(instrument_source, instrument_family) )
         labels = np.asarray(labels)
         
-        import ipdb; ipdb.set_trace()
-        
+        # Write tf records
         np_to_tfrecords(images, labels, path_to_write+str(shard))
         
         # Cleanup to conserve RAM
