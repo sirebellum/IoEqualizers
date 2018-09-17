@@ -4,13 +4,15 @@ import os
 import argparse
 import tensorflow as tf
 import data_processing.audio_processing as ap
+from functions import parse_record, get_weights
+import models
 import glob
 
 # Autoencoders
-from autoencoders import conv, vanilla, convnoise
+from autoencoders import conv, vanilla
 
 # which model to use
-cnn_model = convnoise.encode
+feature_extractor = conv.encode
 
 tf.logging.set_verbosity(tf.logging.WARN)
 #DEBUG, INFO, WARN, ERROR, or FATAL
@@ -19,10 +21,20 @@ tf.logging.set_verbosity(tf.logging.WARN)
 parser = argparse.ArgumentParser()
 parser.add_argument("output_name", help="Specify model output name")
 parser.add_argument("--steps", default=5000, help="Train to number of steps")
+parser.add_argument("--weights", default=None, help="Model checkpoint to get pretrained weights from")
 args = parser.parse_args()
 num_steps = int(args.steps)
 
-CWD_PATH = os.getcwd()
+# Directory setup
+abs_path = os.path.abspath(__file__) # Absolute path of this file
+directory = os.path.dirname(abs_path)
+model_dir = directory+"/models/"+args.output_name
+
+# Get pretrained weights for feature extractor
+weights = None
+if args.weights is not None:
+    weights = os.path.join(os.path.dirname(__file__), args.weights)
+    weights = get_weights(weights) # numpy weights
 
 # Define the input function for training
 def tfrecord_input():
@@ -51,15 +63,6 @@ def tfrecord_input():
 
   return (features)
   
-def parse_record(serialized_example): #parse a single binary example
-  """Parses a single tf.Example into image and label tensors."""
-  features = {'X': tf.FixedLenFeature([1, 12544], tf.float32)}
-  feature = tf.parse_single_example(serialized_example, features)
-  
-  image = tf.reshape(feature['X'], (112, 112))
-  
-  return (image)
-  
 
 def main(unused_argv):
   
@@ -68,7 +71,10 @@ def main(unused_argv):
   
     # Define params for model
     params = {}
-    params['num_labels'] = 0
+    params['num_labels'] = 9
+    params['feature_extractor'] = feature_extractor
+    #params['noise'] = True
+    params['weights'] = weights
 
     # Estimator config to change frequency of ckpt files
     estimator_config = tf.estimator.RunConfig(
@@ -77,8 +83,8 @@ def main(unused_argv):
 
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-    model_fn=cnn_model,
-    model_dir=CWD_PATH+"/models/"+args.output_name,
+    model_fn=conv.autoencoder,
+    model_dir=model_dir,
     config=estimator_config,
     params=params)
     
