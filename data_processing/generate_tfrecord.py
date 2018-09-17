@@ -99,35 +99,50 @@ def generate(path_to_write, dataset_dir):
     # Sharts to split into multiple files
     shard = 0
     
+    # Instances to write at a time
+    num_instances = 12800
+    
     # Nsynth dataset
     dataset = ap.nsynth(dataset_dir)
 
-    batch = dataset.returnInstance(12800)
+    batch = dataset.returnInstance(num_instances)
     while batch is not None:
         #encoded_jpg = cv2.imencode(".jpg", image)[1].tostring()
         images = [ ap.plotSpectrumBW(image).flatten() for image in batch['fft'] ]
         images = np.asarray(images, dtype=np.float32)
         images *= 1/255.0
-        np_to_tfrecords(images, None, path_to_write+str(shard))
+        
+        # Labels
+        instrument_source = [ label for label in batch['instrument_source'] ]
+        instrument_source = np.asarray(instrument_source, dtype=np.int64)
+        instrument_family = [ label for label in batch['instrument_family'] ]
+        instrument_family = np.asarray(instrument_family, dtype=np.int64)
+        # Aggregate labels
+        labels = list( zip(instrument_source, instrument_family) )
+        labels = np.asarray(labels)
+        
+        import ipdb; ipdb.set_trace()
+        
+        np_to_tfrecords(images, labels, path_to_write+str(shard))
         
         # Cleanup to conserve RAM
         del images
         del batch
         gc.collect()
         
-        batch = dataset.returnInstance(12800)
+        batch = dataset.returnInstance(num_instances)
         shard += 1
         
 def main(_):
 
     ###Create valid tfrecord###
-    path_to_write = os.path.join(os.getcwd()) + '/nsynth/valid'
+    path_to_write = os.path.join(os.getcwd()) + '/nsynth/valid_labeled'
     dataset_dir = "nsynth/nsynth-valid/"
     generate(path_to_write, dataset_dir)
         
         
     ###Create Train tfrecords###
-    path_to_write = os.path.join(os.getcwd()) + '/nsynth/train'
+    path_to_write = os.path.join(os.getcwd()) + '/nsynth/train_labeled'
     dataset_dir = "nsynth/nsynth-train/"
     generate(path_to_write, dataset_dir)
 
