@@ -170,7 +170,7 @@ class nsynth:
         # Access stats
         self.num_instances = len(annotations)
         self.num_accessed = 0 # Increments for every accessed instance
-        
+        '''
         #Multithreading
         self.num_threads = 4
         #Create an output and input queue for each thread
@@ -188,15 +188,16 @@ class nsynth:
                                daemon=True,
                                name="thread"+str(x)))
             self.thread[x].start()
-        
+        '''
     
     # Multithreaded return function. Return num instances
     def returnInstance(self, num):
-      ffts = None
-      if self.num_accessed < self.num_instances:
+        '''
+        ffts = None
+        if self.num_accessed < self.num_instances:
         del ffts; gc.collect() # Mem freeing
         upper = self.num_accessed + num # upper access index
-        
+
         # Get relevant filenames and prepend full path
         filenames = self.filenames[self.num_accessed:upper]
         filenames = [ os.path.join(self.wav_dir, file) for file in filenames ]
@@ -209,7 +210,7 @@ class nsynth:
         remaining = len(filenames) - stored
         if remaining > 0:
             thread_files[0] += filenames[stored:stored + remaining]
-        
+
         # Use multiple threads to split into parallel batches
         for x in range(0, self.num_threads):
             self.queuein[x].put(thread_files[x])
@@ -219,20 +220,40 @@ class nsynth:
         for x in range(0, self.num_threads):
             fft = self.queueout[x].get()
             ffts += fft
-        
+
         # Slice correct number of labels     
         data = {}
         for clmn in self.clmns:
             data[clmn] = self.dataset[clmn][self.num_accessed:upper]
         data['fft'] = ffts
-    
+
         # Increment
         self.num_accessed += num
-        
+
         return data
-      
-      # If no more instances to access
-      else: return None
+
+        # If no more instances to access
+        else: return None
+        '''
+        if self.num_accessed < self.num_instances:
+          
+            upper = self.num_accessed + num # upper access index
+            # Convert Nsynth wavfiles to fft spectrums
+            ffts = [ convertWav(os.path.join(self.wav_dir, self.filenames[x]+".wav")) \
+                                    for x in range(self.num_accessed, upper) \
+                                    if x < self.num_instances ]
+            # Slice correct number of labels     
+            data = {}
+            for clmn in self.clmns:
+                data[clmn] = self.dataset[clmn][self.num_accessed:upper]
+            data['fft'] = ffts
+            
+            # Increment
+            self.num_accessed += num
+        
+            return data
+            
+        else: return None
 
 # Return FFTs for wavs in filenames.
 # Outside of class to avoid unnecssary mem replication.
