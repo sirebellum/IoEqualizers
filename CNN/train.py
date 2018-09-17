@@ -40,28 +40,28 @@ if args.weights is not None:
 def tfrecord_input():
 
   # Keep list of filenames, so you can input directory of tfrecords easily
-  train_filenames = glob.glob("data_processing/nsynth/train*tfrecords")
-  valid_filenames = glob.glob("data_processing/nsynth/valid*tfrecords")
+  train_filenames = glob.glob("data_processing/nsynth_ssd/train*tfrecords")
+  valid_filenames = glob.glob("data_processing/nsynth_ssd/valid*tfrecords")
   batch_size=256
 
   # Import data
   dataset = tf.data.TFRecordDataset(
         train_filenames,
-        num_parallel_reads=4,
+        num_parallel_reads=6,
         buffer_size=1000*1000*128) # 128mb of io cache
 
   # Map the parser over dataset, and batch results by up to batch_size
-  dataset = dataset.map(parse_record, num_parallel_calls=4)
+  dataset = dataset.map(parse_record, num_parallel_calls=6)
   dataset = dataset.batch(batch_size)
   dataset = dataset.repeat()
-  dataset = dataset.prefetch(batch_size*2) # Prefetch 2 batches at a time
+  dataset = dataset.prefetch(batch_size*4) # Prefetch 4 batches at a time
   #print("Dataset:", dataset.output_shapes, ":::", dataset.output_types)
   iterator = dataset.make_one_shot_iterator()
 
-  features = iterator.get_next()
+  features, labels = iterator.get_next()
   #print("Iterator:", features)
 
-  return (features)
+  return (features, labels)
   
 
 def main(unused_argv):
@@ -71,7 +71,7 @@ def main(unused_argv):
   
     # Define params for model
     params = {}
-    params['num_labels'] = 9
+    params['num_labels'] = 3
     params['feature_extractor'] = feature_extractor
     #params['noise'] = True
     params['weights'] = weights
@@ -83,7 +83,7 @@ def main(unused_argv):
 
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-    model_fn=conv.autoencoder,
+    model_fn=models.classifier,
     model_dir=model_dir,
     config=estimator_config,
     params=params)

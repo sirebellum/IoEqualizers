@@ -6,6 +6,7 @@ import inotify.adapters
 import tensorflow as tf
 import data_processing.audio_processing as ap
 from functions import parse_record, get_weights
+import models
 import glob
 
 # Autoencoders
@@ -56,10 +57,10 @@ def tfrecord_input():
     #print("Dataset:", dataset.output_shapes, ":::", dataset.output_types)
     iterator = dataset.make_one_shot_iterator()
 
-    features = iterator.get_next()
+    features, labels = iterator.get_next()
     #print("Iterator:", features)
 
-    return (features)
+    return (features, labels)
 
 def main(unused_argv):
 
@@ -68,13 +69,13 @@ def main(unused_argv):
 
     # Define params for model
     params = {}
-    params['num_labels'] = 0
+    params['num_labels'] = 3
     params['feature_extractor'] = feature_extractor
     params['weights'] = weights
 
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-        model_fn=conv.autoencoder,
+        model_fn=models.classifier,
         model_dir=model_dir,
         params=params)
 

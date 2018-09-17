@@ -11,6 +11,9 @@ for serialized_example in tf.python_io.tf_record_iterator(filenames[0]):
     example = tf.train.Example()
     example.ParseFromString(serialized_example)
     x_1 = np.array(example.features.feature['X'].float_list.value)
+    y_1 = np.array(example.features.feature['Y'].int64_list.value)
+    
+    print(y_1)
     
     x_1 = np.reshape(x_1, (112, 112))
     x_1 *= 255.0
