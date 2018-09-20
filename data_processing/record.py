@@ -5,15 +5,14 @@ import pyaudio
 import datetime
 from multiprocessing import Process, Queue
 import os
+import csv
 
 # Function meant to be used by second thread to write
 #label entry without interrupting the main thread.
-def create_entry(labelfile, wavfile):
-  while True:
-    # Wait for input
-    input()
+def create_entry(begin, now):
     
-    print( "Marked" )
+    entry = now - begin
+    return [entry.total_seconds()]
 
 # Record main thread
 def record():
@@ -34,7 +33,6 @@ def record():
     if not os.path.exists(WAVE_DIR):
         os.makedirs(WAVE_DIR)
     else: exit("Directory exists!")
-    
     
     # Open pyaudio interface
     p = pyaudio.PyAudio()
@@ -88,4 +86,22 @@ def record():
         p.terminate()
 
 if __name__ == "__main__":
-    print("unimplemented...")
+    
+    labelfile = "labels.csv"
+    entries = list()
+    input("Press enter when ready to start labeling...\n")
+    beginning = datetime.datetime.now()
+    try:
+        while True:
+            input()
+            now = datetime.datetime.now()
+            entries.append(create_entry(beginning, now))
+            
+    
+    # Write out entries
+    except KeyboardInterrupt:
+        with open(labelfile, mode='w') as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.   QUOTE_MINIMAL)
+            
+            for entry in entries:
+                csv_writer.writerow(entry)
