@@ -91,9 +91,13 @@ if __name__ == "__main__":
     entries = list()
     input("Press enter when ready to start labeling...\n")
     beginning = datetime.datetime.now()
+    print("Labeling!...")
     try:
         while True:
-            input()
+            user_input = input()
+            if "r" in user_input:
+                print("Removing {} entry!".format(entries.pop()))
+                continue
             now = datetime.datetime.now()
             entries.append(create_entry(beginning, now))
             
