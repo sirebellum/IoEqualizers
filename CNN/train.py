@@ -78,17 +78,22 @@ def main(unused_argv):
     #params['noise'] = True
     params['weights'] = weights
 
+    # Reduce GPU memory allocation
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
+    sess_config = tf.ConfigProto(gpu_options=gpu_options)
+    
     # Estimator config to change frequency of ckpt files
     estimator_config = tf.estimator.RunConfig(
-    save_checkpoints_secs = 60*5,  # Save checkpoints every 5 minutes
-    keep_checkpoint_max = 2)       # Retain the 2 most recent checkpoints.
+        session_config = sess_config,
+        save_checkpoints_secs = 60*5,  # Save checkpoints every 5 minutes
+        keep_checkpoint_max = 2)       # Retain the 2 most recent checkpoints.
 
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-    model_fn=models.classifier,
-    model_dir=model_dir,
-    config=estimator_config,
-    params=params)
+        model_fn=models.classifier,
+        model_dir=model_dir,
+        config=estimator_config,
+        params=params)
     
     classifier.train(
         input_fn=train_input_fn,

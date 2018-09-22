@@ -53,7 +53,7 @@ def tfrecord_input():
     # Map the parser over dataset, and batch results by up to batch_size
     dataset = dataset.map(parse_record)
     dataset = dataset.batch(batch_size)
-    dataset = dataset.repeat(1) # Only go over validation set once
+    dataset = dataset.repeat(int(12678/batch_size)) # Only go over validation set once
     #print("Dataset:", dataset.output_shapes, ":::", dataset.output_types)
     iterator = dataset.make_one_shot_iterator()
 
@@ -73,10 +73,16 @@ def main(unused_argv):
     params['feature_extractor'] = feature_extractor
     params['weights'] = weights
 
+    # Reduce GPU memory allocation
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
+    sess_config = tf.ConfigProto(gpu_options=gpu_options)
+    estimator_config = tf.estimator.RunConfig(session_config=sess_config)
+    
     # Create the Estimator
     classifier = tf.estimator.Estimator(
         model_fn=models.classifier,
         model_dir=model_dir,
+        config=estimator_config,
         params=params)
 
     # Evaluate immediately
