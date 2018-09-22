@@ -69,7 +69,7 @@ def main(unused_argv):
 
     # Define params for model
     params = {}
-    params['num_labels'] = 3
+    params['num_labels'] = 11
     params['feature_extractor'] = feature_extractor
     params['weights'] = weights
 

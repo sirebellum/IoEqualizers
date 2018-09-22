@@ -11,7 +11,7 @@ def parse_record(serialized_example): #parse a single binary example
   instrument_src = feature['Y'][0]
   instrument_fmly = feature['Y'][1]
   
-  label = instrument_src
+  label = instrument_fmly
   
   return (image, label)
                         

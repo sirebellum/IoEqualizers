@@ -49,6 +49,8 @@ def tfrecord_input():
         train_filenames,
         num_parallel_reads=6,
         buffer_size=1000*1000*128) # 128mb of io cache
+        
+  ### IMPLEMENT SHUFFLE ###
 
   # Map the parser over dataset, and batch results by up to batch_size
   dataset = dataset.map(parse_record, num_parallel_calls=6)
@@ -71,7 +73,7 @@ def main(unused_argv):
   
     # Define params for model
     params = {}
-    params['num_labels'] = 3
+    params['num_labels'] = 11
     params['feature_extractor'] = feature_extractor
     #params['noise'] = True
     params['weights'] = weights
