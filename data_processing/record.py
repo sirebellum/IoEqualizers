@@ -87,7 +87,9 @@ def record():
 
 if __name__ == "__main__":
     
-    labelfile = "labels.csv"
+    
+    labelfile = input("What would you like to name this session?: ")
+    labelfile = labelfile+".csv"
     entries = list()
     input("Press enter when ready to start labeling...\n")
     beginning = datetime.datetime.now()
