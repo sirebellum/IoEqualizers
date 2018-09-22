@@ -23,17 +23,14 @@ def encode(features, weights):
     
     # Encoder
     try:
-        conv1_1 = tf.layers.Conv2D(16, (3, 1), activation='relu', padding='same', name='conv1-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
-        conv1_2 = tf.layers.Conv2D(16, (1, 3), activation='relu', padding='same', name='conv2-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(conv1_1)
-        pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool3-')(conv1_2)
+        conv1_1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv1-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
+        pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool2-')(conv1_1)
         
-        conv2_1 = tf.layers.Conv2D(8, (3, 1), activation='relu', padding='same', name='conv4-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool1)
-        conv2_2 = tf.layers.Conv2D(8, (1, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(conv2_1)
-        pool2 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool6-')(conv2_2)
+        conv1_2 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same', name='conv3-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool1)
+        pool2 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool4-')(conv1_2)
         
-        conv3_1 = tf.layers.Conv2D(8, (3, 1), activation='relu', padding='same', name='conv7-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool2)
-        conv3_2 = tf.layers.Conv2D(8, (1, 3), activation='relu', padding='same', name='conv8-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(conv3_1)
-        h = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='feature_map9-')(conv3_2)
+        conv1_3 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool2)
+        h = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='feature_map6-')(conv1_3)
     
     # error for popping too many weights off of list
     except IndexError:
