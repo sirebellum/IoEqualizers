@@ -23,14 +23,7 @@ def encode(features, weights):
     
     # Encoder
     try:
-        conv1_1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv1-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
-        pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool2-')(conv1_1)
-        
-        conv1_2 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same', name='conv3-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool1)
-        pool2 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool4-')(conv1_2)
-        
-        conv1_3 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool2)
-        h = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='feature_map6-')(conv1_3)
+        feature_map = conv3x3(features, kernels, biases)
     
     # error for popping too many weights off of list
     except IndexError:
@@ -39,12 +32,37 @@ def encode(features, weights):
     except ValueError:
         exit("Kernel weight dimensions do not match! Make sure architectures are compatible")
     
-    # Exit if not all the weights were used
+    # Prompt if not all the weights were used
     if len(kernels) > 0 and kernels.pop() != None:
         response = input("Not all weights used! {}/{} Are you sure you want to continue?" \
                             .format( len(weights['conv_kernels']), len(kernels)+1 ) )
     
-    if weights is not None:
+    
+    return feature_map
+
+def conv_audio(features, kernels, biases):
+
+    return None
+
+# Standard 3x3 encoder
+def conv3x3(features, kernels, biases):
+
+    # Check for valid weights
+    restore = False
+    if kernels[0] is not None:
+        restore = True
+
+    conv1_1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv1-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
+    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool2-')(conv1_1)
+    
+    conv1_2 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same', name='conv3-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool1)
+    pool2 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool4-')(conv1_2)
+    
+    conv1_3 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(pool2)
+    h = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='feature_map6-')(conv1_3)
+    
+    # If valid weights were loaded
+    if restore:
         # Don't update layers
         tf.stop_gradient(conv1_1)
         tf.stop_gradient(conv1_2)
