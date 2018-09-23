@@ -5,8 +5,7 @@ import os
 import scipy.io.wavfile
 import numpy as np
 import matplotlib.pyplot as plt
-from multiprocessing import Process, Queue
-import gc
+from multiprocessing import Pool
 
 # Plot BW spectrum picture. Removes infinities
 def plotSpectrumBW(data):
@@ -174,21 +173,8 @@ class nsynth:
         
         #Multithreading
         self.num_threads = 4
-        #Create an output and input queue for each thread
-        self.queueout = list()
-        self.queuein = list()
-        for x in range(0, self.num_threads):
-            self.queueout.append(Queue())
-            self.queuein.append(Queue())
         #Initialize Threads
-        self.thread = list()
-        for x in range(0, self.num_threads):
-            self.thread.append(Process(target=_returnFFTs,
-                               args=(self.queuein[x],
-                                     self.queueout[x],),
-                               daemon=True,
-                               name="thread"+str(x)))
-            self.thread[x].start()
+        self.pool = Pool(processes=self.num_threads)
         
     
     # Multithreaded return function. Return num instances
@@ -196,31 +182,14 @@ class nsynth:
         
         ffts = None
         if self.num_accessed < self.num_instances:
-            del ffts; gc.collect() # Mem freeing
+            del ffts
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
             filenames = self.filenames[self.num_accessed:upper]
-            filenames = [ os.path.join(self.wav_dir, file) for file in filenames ]
-            # Split up filenames for each thread
-            chunk = int( num/self.num_threads )
-            thread_files = [ filenames[chunk*n:chunk*n + chunk] \
-                                for n in range(0, self.num_threads) ]
-            # Handle the case where there are an uneven ratio of files to threads
-            stored = chunk*self.num_threads
-            remaining = len(filenames) - stored
-            if remaining > 0:
-                thread_files[0] += filenames[stored:stored + remaining]
-
-            # Use multiple threads to split into parallel batches
-            for x in range(0, self.num_threads):
-                self.queuein[x].put(thread_files[x])
-                
-            # Wait for threads to finish and get data
-            ffts = list()
-            for x in range(0, self.num_threads):
-                fft = self.queueout[x].get()
-                ffts += fft
+            filenames = [ os.path.join(self.wav_dir, file+".wav") for file in filenames ]
+            # Process filenames
+            ffts = self.pool.map(convertWav, filenames)
 
             # Slice correct number of labels     
             data = {}
@@ -234,7 +203,12 @@ class nsynth:
             return data
 
         # If no more instances to access
-        else: return None
+        else:
+            # kill threads
+            self.pool.close()
+            self.pool.join()
+                
+            return None
         '''
         if self.num_accessed < self.num_instances:
           
@@ -256,19 +230,6 @@ class nsynth:
             
         else: return None
         '''
-
-# Return FFTs for wavs in filenames.
-# Outside of class to avoid unnecssary mem replication.
-def _returnFFTs(queuein, queueout):
-  ffts = None
-  while True:
-    del ffts; gc.collect() # Mem freeing
-    filenames = queuein.get()
-  
-    # Convert Nsynth wavfiles to fft spectrums
-    ffts = [ convertWav(file+".wav") for file in filenames]
-
-    queueout.put(ffts)
 
 def main():
     from PIL import Image

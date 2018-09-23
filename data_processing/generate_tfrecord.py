@@ -4,7 +4,6 @@ import math
 import numpy as np
 import audio_processing as ap
 import os
-import gc
 
 def label_number(label_string): #turn string into integer
   if "dark" in label_string:
@@ -124,25 +123,24 @@ def generate(path_to_write, dataset_dir):
         # Write tf records
         np_to_tfrecords(images, labels, path_to_write+str(shard))
         
-        # Cleanup to conserve RAM
-        del images
-        del batch
-        gc.collect()
-        
         batch = dataset.returnInstance(num_instances)
         shard += 1
+        
+    del dataset
+    del batch
+    del images
         
 def main(_):
 
     ###Create valid tfrecord###
-    path_to_write = os.path.join(os.getcwd()) + '/nsynth/valid_labeled'
-    dataset_dir = "nsynth/nsynth-valid/"
+    path_to_write = os.path.join(os.getcwd()) + '/nsynth/valid'
+    dataset_dir = "nsynth-valid/"
     generate(path_to_write, dataset_dir)
         
         
     ###Create Train tfrecords###
-    path_to_write = os.path.join(os.getcwd()) + '/nsynth/train_labeled'
-    dataset_dir = "nsynth/nsynth-train/"
+    path_to_write = os.path.join(os.getcwd()) + '/nsynth/train'
+    dataset_dir = "nsynth-train/"
     generate(path_to_write, dataset_dir)
 
 
