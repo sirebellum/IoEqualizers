@@ -128,7 +128,8 @@ def convertWav(input, \
     
     #filter_banks = computeFB(sample_rate, 28, pow_frames_raw, NFFT)
     
-    return pow_frames
+    # Make spectrogram t x f
+    return np.rot90(pow_frames)
 
 
 # Class for accessing files in the nsynth dataset
