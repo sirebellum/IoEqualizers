@@ -12,7 +12,7 @@ import glob
 from autoencoders import conv, vanilla
 
 # which model to use
-feature_extractor = conv.encode3x3
+feature_extractor = conv.conv_instrument
 
 tf.logging.set_verbosity(tf.logging.WARN)
 #DEBUG, INFO, WARN, ERROR, or FATAL

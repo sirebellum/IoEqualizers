@@ -40,9 +40,40 @@ def encode(features, weights, encoder):
     
     return feature_map
 
-def conv_audio(features, kernels, biases):
+# Encoder with kernels specifically for instrument recognition
+def conv_instrument(features, kernels, biases):
 
-    return None
+    # Check for valid weights
+    restore = False
+    if kernels[0] is not None:
+        restore = True
+
+    # Capture large frequency dependent features
+    conv_freq1 = tf.layers.Conv2D(32, (2, HEIGHT/2), strides=(2, HEIGHT/4), activation='relu', padding='same', name='conv1-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
+    # Capture smaller frequency dependent features
+    conv_freq2 = tf.layers.Conv2D(16, (2, HEIGHT/8), strides=(2, HEIGHT/16), activation='relu', padding='same', name='conv2-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
+    
+    # Pool out unimportant time scales
+    pool_freq1 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 2), padding='same', name='pool3-')(conv_freq1)
+    pool_freq2 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 2), padding='same', name='pool4-')(conv_freq2)
+    
+    # Concat into same feature map
+    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [0, 0,], [3, 3], [0, 0]]))
+    freq_map = tf.concat([pool_freq1_padded, pool_freq2], 3)
+    
+    # Deepen
+    conv1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(freq_map)
+    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool6-')(conv1)
+    feature_map = pool1
+    
+    # If valid weights were loaded
+    if restore:
+        # Don't update layers
+        tf.stop_gradient(conv_freq1)
+        tf.stop_gradient(conv_freq2)
+        tf.stop_gradient(conv1)
+    
+    return feature_map
 
 # Standard 3x3 encoder
 def encode3x3(features, kernels, biases):
@@ -70,7 +101,7 @@ def encode3x3(features, kernels, biases):
     
     return h
     
-def decode(feature_map):
+def decode3x3(feature_map):
 
     # Decoder
     conv2_1 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same')(feature_map)
@@ -114,6 +145,7 @@ def autoencoder(features, labels, mode, params):
     print(height*width*depth, "total features")
     
     # Decode
+    decode = decode3x3
     reconstructed = decode(feature_map)
     
     # Calculate Loss
