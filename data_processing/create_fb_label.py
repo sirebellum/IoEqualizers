@@ -4,16 +4,35 @@ import csv
 # Function meant to be used to parse seconds
 def create_entry(wavfile, beg, end):
     
-    h, m, s = beg.split(":")
-    hEnd, mEnd, sEnd = end.split(":")
+    Beginning = beg.split(":")
+    Ending = end.split(":")
     
+    # Invalid
+    if Beginning[0] == '':
+        return None
+    # Only seconds
+    elif len(Beginning) == 1:
+        h = 0; hEnd = 0
+        m = 0; mEnd = 0
+        s = Beginning[0]; sEnd = Ending[0]
+    # Not hours
+    elif len(Beginning) == 2:
+        h = 0; hEnd = 0
+        m = Beginning[0]; mEnd = Ending[0]
+        s = Beginning [1]; sEnd = Ending[1]
+    # Everything
+    else:
+        h = Beginning[0]; hEnd = Ending[0]
+        m = Beginning[1]; mEnd = Ending[1]
+        s = Beginning [2]; sEnd = Ending[2]
+
     # Convert from strings to seconds
     h = int(h)*60*60
     m = int(m)*60
-    s = int(s)
+    s = float(s)
     hEnd = int(hEnd)*60*60
     mEnd = int(mEnd)*60
-    sEnd = int(sEnd)
+    sEnd = float(sEnd)
     
     start = h+m+s
     duration = hEnd+mEnd+sEnd - start
@@ -34,9 +53,12 @@ if __name__ == "__main__":
     while True:
         try:
             while True:
-                beg = input("Beginning time of feedback (hh:mm:ss)?: ")
-                end = input("End time of feedback (hh:mm:ss)?: ")
+                beg = input("Beginning time of feedback (hh:mm:ss.s)?: ")
+                end = input("End time of feedback (hh:mm:ss.s)?: ")
                 entries.append(create_entry(wavfile, beg, end))
+                if entries[-1] is None:
+                    entries.pop()
+                    print("Invalid entry!")
             
         # Check for next wav file
         except KeyboardInterrupt:
