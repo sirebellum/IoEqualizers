@@ -8,7 +8,7 @@ def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 
     return input_layer + noise
 
-def encode(features, weights):
+def encode(features, weights, encoder):
 
     # Initialization weights
     if weights is not None:
@@ -23,7 +23,7 @@ def encode(features, weights):
     
     # Encoder
     try:
-        feature_map = conv3x3(features, kernels, biases)
+        feature_map = encoder(features, kernels, biases)
     
     # error for popping too many weights off of list
     except IndexError:
@@ -45,7 +45,7 @@ def conv_audio(features, kernels, biases):
     return None
 
 # Standard 3x3 encoder
-def conv3x3(features, kernels, biases):
+def encode3x3(features, kernels, biases):
 
     # Check for valid weights
     restore = False
@@ -99,11 +99,14 @@ def autoencoder(features, labels, mode, params):
     
     weights = None
     
+    # Choose encoder/feature_extractor
+    encoder = params['feature_extractor']
+    
     # Encode
     if noisy_layer is not None:
-        feature_map = encode(noisy_layer, weights)
+        feature_map = encode(noisy_layer, weights, encoder)
     else: 
-        feature_map = encode(input_layer, weights)
+        feature_map = encode(input_layer, weights, encoder)
     
     # Print dimensionality of feature map
     _, height, width, depth = feature_map.get_shape()

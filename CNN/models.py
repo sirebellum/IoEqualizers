@@ -1,4 +1,6 @@
 import tensorflow as tf
+from autoencoders import conv
+extract = conv.encode
 HEIGHT = 112
 WIDTH = 112
 BETA = 0.01 # L2 Beta
@@ -48,13 +50,13 @@ def classifier(features, labels, mode, params):
   NUMCLASSES = params['num_labels']
 
   # Feature extractor (function)
-  extract = params['feature_extractor']
+  feature_extractor = params['feature_extractor']
   
   # Pretrained weights
   weights = params['weights']
   
   # Extract final layer for classification
-  feature_map = extract(input_layer, weights)
+  feature_map = extract(input_layer, weights, feature_extractor)
 
   # Final feature map dimensions
   _, height, width, depth = feature_map.get_shape()
