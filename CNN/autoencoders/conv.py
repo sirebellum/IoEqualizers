@@ -3,7 +3,7 @@ HEIGHT = 112
 WIDTH = 112
 NOIS_MEAN = 0.0
 NOISE_STD = 0.2
-BETA = 0.01
+BETA = 0.001
 
 def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 
@@ -75,11 +75,13 @@ def conv_instrument(features, kernels, biases):
         16, (3, 3),activation='relu',
         padding='same',name='conv5-',
         kernel_initializer=kernels.pop(),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(freq_map)
     conv2 = tf.layers.Conv2D(
         16, (3, 3),activation='relu',
         padding='same',name='conv6-',
         kernel_initializer=kernels.pop(),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(conv1)
         
     pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool7-')(conv2)

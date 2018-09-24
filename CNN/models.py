@@ -3,7 +3,7 @@ from autoencoders import conv
 extract = conv.encode
 HEIGHT = 112
 WIDTH = 112
-BETA = 0.01 # L2 Beta
+BETA = 0.001 # L2 Beta
 
 def cnn(input_layer, weights):
   """Model function for CNN."""
@@ -66,13 +66,13 @@ def classifier(features, labels, mode, params):
   # Dense layer
   final_flat = tf.reshape(feature_map, [-1, height * width * depth])
   dropout = tf.layers.dropout(
-      inputs=final_flat, rate=0.3, training=mode == tf.estimator.ModeKeys.TRAIN)
+      inputs=final_flat, rate=0.5, training=mode == tf.estimator.ModeKeys.TRAIN)
 
   # Logits Layer
   logits = tf.layers.dense(
     inputs=dropout,
-    units=NUMCLASSES,
-    kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA))
+    kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+    units=NUMCLASSES)
 
   predictions = {
       # Generate predictions (for PREDICT and EVAL mode)
@@ -96,7 +96,7 @@ def classifier(features, labels, mode, params):
   # Calculate Loss (for both TRAIN and EVAL modes)
   loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
   
-  # L2 Regularization for logits
+  # L2 Regularization for layer weights
   loss = tf.reduce_mean(loss + tf.losses.get_regularization_loss())
 
   # Configure the Training Op (for TRAIN mode)
