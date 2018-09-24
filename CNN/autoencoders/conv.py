@@ -63,7 +63,8 @@ def conv_instrument(features, kernels, biases):
     
     # Deepen
     conv1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(freq_map)
-    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool6-')(conv1)
+    conv2 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv6-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(conv1)
+    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool7-')(conv2)
     feature_map = pool1
     
     # If valid weights were loaded
