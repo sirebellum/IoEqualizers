@@ -3,6 +3,7 @@ HEIGHT = 112
 WIDTH = 112
 NOIS_MEAN = 0.0
 NOISE_STD = 0.2
+BETA = 0.01
 
 def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 
@@ -49,9 +50,17 @@ def conv_instrument(features, kernels, biases):
         restore = True
 
     # Capture large frequency dependent features
-    conv_freq1 = tf.layers.Conv2D(32, (2, HEIGHT/2), strides=(2, HEIGHT/4), activation='relu', padding='same', name='conv1-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
+    conv_freq1 = tf.layers.Conv2D(
+        32, (2, HEIGHT/2), strides=(2, HEIGHT/4),
+        activation='relu', padding='same', name='conv1-',
+        kernel_initializer=kernels.pop(),
+        bias_initializer=biases.pop())(features)
     # Capture smaller frequency dependent features
-    conv_freq2 = tf.layers.Conv2D(16, (2, HEIGHT/8), strides=(2, HEIGHT/16), activation='relu', padding='same', name='conv2-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(features)
+    conv_freq2 = tf.layers.Conv2D(
+        16, (2, HEIGHT/8), strides=(2, HEIGHT/16),
+        activation='relu', padding='same', name='conv2-',
+        kernel_initializer=kernels.pop(),
+        bias_initializer=biases.pop())(features)
     
     # Pool out unimportant time scales
     pool_freq1 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 2), padding='same', name='pool3-')(conv_freq1)
@@ -62,8 +71,17 @@ def conv_instrument(features, kernels, biases):
     freq_map = tf.concat([pool_freq1_padded, pool_freq2], 3)
     
     # Deepen
-    conv1 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv5-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(freq_map)
-    conv2 = tf.layers.Conv2D(16, (3, 3), activation='relu', padding='same', name='conv6-', kernel_initializer=kernels.pop(), bias_initializer=biases.pop())(conv1)
+    conv1 = tf.layers.Conv2D(
+        16, (3, 3),activation='relu',
+        padding='same',name='conv5-',
+        kernel_initializer=kernels.pop(),
+        bias_initializer=biases.pop())(freq_map)
+    conv2 = tf.layers.Conv2D(
+        16, (3, 3),activation='relu',
+        padding='same',name='conv6-',
+        kernel_initializer=kernels.pop(),
+        bias_initializer=biases.pop())(conv1)
+        
     pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='pool7-')(conv2)
     feature_map = pool1
     
@@ -73,6 +91,7 @@ def conv_instrument(features, kernels, biases):
         tf.stop_gradient(conv_freq1)
         tf.stop_gradient(conv_freq2)
         tf.stop_gradient(conv1)
+        tf.stop_gradient(conv2)
     
     return feature_map
 
@@ -103,6 +122,18 @@ def encode3x3(features, kernels, biases):
     return h
     
 def decode3x3(feature_map):
+
+    # Reshape input to [-1, 14, 14, -1] to enable decoder
+    # Pads enough 0s to feature_map to enable easy resize with dynamic depth
+    _, height, width, depth = feature_map.get_shape()
+    elements = height*width*depth
+    final_depth = tf.ceil( elements/(14*14) )
+    remainder = 14*14*final_depth - elements
+
+    padding = tf.zeroes([remainder], dtype=feature_map.dtype)
+    feature_map = tf.reshape(feature_map, [-1, elements])
+    feature_map = tf.concat([feature_map, padding])
+    feature_map = tf.reshape(feature_map, [-1, 14, 14, final_depth])
 
     # Decoder
     conv2_1 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same')(feature_map)
