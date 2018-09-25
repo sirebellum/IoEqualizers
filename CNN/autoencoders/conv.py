@@ -1,4 +1,5 @@
 import tensorflow as tf
+import math
 HEIGHT = 112
 WIDTH = 112
 NOIS_MEAN = 0.0
@@ -122,19 +123,30 @@ def encode3x3(features, kernels, biases):
         tf.stop_gradient(conv1_3)
     
     return h
+
+# Function mapped onto feature_maps
+def zero_concat(feature_map):
+
+    elements = feature_map.get_shape()
+    elements = elements.as_list()[0]
+    final_depth = math.ceil( elements/(14*14) )
+    remainder = 14*14*final_depth - elements
     
+    padding = tf.zeros([remainder], dtype=feature_map.dtype)
+    
+    return tf.concat([feature_map, padding], 0)
+
 def decode3x3(feature_map):
 
     # Reshape input to [-1, 14, 14, -1] to enable decoder
     # Pads enough 0s to feature_map to enable easy resize with dynamic depth
-    _, height, width, depth = feature_map.get_shape()
-    elements = height*width*depth
-    final_depth = tf.ceil( elements/(14*14) )
+    batches, height, width, depth = feature_map.get_shape()
+    elements = int( height*width*depth )
+    final_depth = math.ceil( elements/(14*14) )
     remainder = 14*14*final_depth - elements
-
-    padding = tf.zeroes([remainder], dtype=feature_map.dtype)
+    
     feature_map = tf.reshape(feature_map, [-1, elements])
-    feature_map = tf.concat([feature_map, padding])
+    feature_map = tf.map_fn(zero_concat, feature_map)
     feature_map = tf.reshape(feature_map, [-1, 14, 14, final_depth])
 
     # Decoder
@@ -162,6 +174,7 @@ def autoencoder(features, labels, mode, params):
     if "noise" in params.keys():
         noisy_layer = gaussian_noise_layer(input_layer, NOISE_STD)
     
+    # Autoencoders don't need pre-loaded weights
     weights = None
     
     # Choose encoder/feature_extractor
