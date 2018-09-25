@@ -6,7 +6,7 @@ import inotify.adapters
 import tensorflow as tf
 import data_processing.audio_processing as ap
 from functions import parse_record, get_weights
-import models
+import class_models
 import glob
 
 # Autoencoders
@@ -80,7 +80,7 @@ def main(unused_argv):
     
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-        model_fn=models.classifier,
+        model_fn=conv.autoencoder,
         model_dir=model_dir,
         config=estimator_config,
         params=params)
