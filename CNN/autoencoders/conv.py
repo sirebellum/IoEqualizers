@@ -124,40 +124,27 @@ def encode3x3(features, kernels, biases):
     
     return h
 
-# Function mapped onto feature_maps
-def zero_concat(feature_map):
-
-    elements = feature_map.get_shape()
-    elements = elements.as_list()[0]
-    final_depth = math.ceil( elements/(14*14) )
-    remainder = 14*14*final_depth - elements
-    
-    padding = tf.zeros([remainder], dtype=feature_map.dtype)
-    
-    return tf.concat([feature_map, padding], 0)
 
 def decode3x3(feature_map):
 
-    # Reshape input to [-1, 14, 14, -1] to enable decoder
-    # Pads enough 0s to feature_map to enable easy resize with dynamic depth
-    batches, height, width, depth = feature_map.get_shape()
+    # Dense layer to get input to correct size
+    _, height, width, depth = feature_map.get_shape()
     elements = int( height*width*depth )
-    final_depth = math.ceil( elements/(14*14) )
-    remainder = 14*14*final_depth - elements
+    input_depth = math.ceil( elements/(14*14) )
+    dense_elements = input_depth * 14*14
     
-    feature_map = tf.reshape(feature_map, [-1, elements])
-    feature_map = tf.map_fn(zero_concat, feature_map)
-    feature_map = tf.reshape(feature_map, [-1, 14, 14, final_depth])
+    feature_flat = tf.reshape(feature_map, [-1, elements])
+    input = tf.layers.dense(inputs=feature_flat, units=dense_elements)
+    input = tf.reshape(input, [-1, 14, 14, input_depth])
 
     # Decoder
-    conv2_1 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same')(feature_map)
+    conv2_1 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same')(input)
     up1 = tf.keras.layers.UpSampling2D((2, 2))(conv2_1)
     conv2_2 = tf.layers.Conv2D(8, (3, 3), activation='relu', padding='same')(up1)
     up2 = tf.keras.layers.UpSampling2D((2, 2))(conv2_2)
     conv2_3 = tf.layers.Conv2D(16, (3, 3), activation='relu')(up2)
     up3 = tf.image.resize_nearest_neighbor(conv2_3, [HEIGHT, WIDTH]) # Rplaced UpSamplig2D b/c bug
-    reconstructed = tf.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same', 
-                                     activity_regularizer=tf.nn.l2_loss,
+    reconstructed = tf.layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same',
                                      name='reconstructed_image')(up3)
                                      
     return reconstructed
