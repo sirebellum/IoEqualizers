@@ -65,7 +65,7 @@ if __name__ == "__main__":
             wavfile = input("\nWhat is the name of the wav file (n for none)?: ")
             if wavfile != "n": continue
             
-            # Write wav file if none left
+            # Write csv file if none left
             with open(labelfile, mode='w') as csv_file:
                 csv_writer = csv.writer(csv_file, delimiter=',', quotechar='"', quoting=csv.   QUOTE_MINIMAL)
                 

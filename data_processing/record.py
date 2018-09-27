@@ -7,8 +7,7 @@ from multiprocessing import Process, Queue
 import os
 import csv
 
-# Function meant to be used by second thread to write
-#label entry without interrupting the main thread.
+# Returns difference between times in total seconds
 def create_entry(begin, now):
     
     entry = now - begin
@@ -87,17 +86,20 @@ def record():
 
 if __name__ == "__main__":
     
-    
+    # Create session with filenames
     labelfile = input("What would you like to name this session?: ")
     labelfile = labelfile+".csv"
-    entries = list()
+    entries = list() # Stores lists of start and end
+    
     input("Press enter when ready to start labeling...\n")
     beginning = datetime.datetime.now()
     print("Labeling!...")
+    
+    # Begin labeling
     try:
         while True:
             user_input = input()
-            if "r" in user_input:
+            if "r" in user_input: # If an entry was botched, enter r to remove last entry
                 print("Removing {} entry!".format(entries.pop()))
                 continue
             now = datetime.datetime.now()

@@ -6,6 +6,7 @@ import scipy.io.wavfile
 import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
+import glob
 
 # Plot BW spectrum picture. Removes infinities
 def plotSpectrumBW(data):
@@ -21,6 +22,7 @@ def plotSpectrumBW(data):
     data = np.round(data).astype(np.uint8)
     
     # Slice to make even square
+    #data = data[0:112, 0:112]
     return data
     
 # Plot spectrum picture
@@ -65,14 +67,16 @@ def computeFB(sample_rate, nfilters, pow_frames, NFFT):
 # Converts WAV file or audio array into frequency spectrum
 # frame_size  : how many ms for fft window
 # frame_stride: how many ms for fft window slide increment
-# crop        : how many seconds to crop input file to
+# crop_beg    : how many seconds to wait to crop
+# crop_end    : how many seconds to crop input file to
 # NFFT        : how many frequency bins
 # visualize   : to visualize or not to visualize, that is the question
 def convertWav(input, \
                sample_rate=None, \
                frame_size=0.025, \
                frame_stride=0.01, \
-               crop=4, \
+               crop_beg=0, \
+               crop_end=4, \
                NFFT=256, \
                visualize=False):
 
@@ -80,11 +84,13 @@ def convertWav(input, \
     # If filename supplied
     if sample_rate is None:
         sample_rate, signal = scipy.io.wavfile.read(input)
-    
-    # If sample longer than crop size
+
+    # Crop
     duration = len(signal) / sample_rate
-    if duration > crop:
-        signal = signal[0:int(crop * sample_rate)] #crop to crop seconds default 4
+    beg = int(crop_beg * sample_rate) - int(sample_rate*0.1)
+    if beg < 0: beg = 0 # Wouldn't want to wrap to the end
+    end = int(crop_end * sample_rate) + int(sample_rate*0.1)
+    signal = signal[beg:end]
 
     ###Pre-emphasize signal
     #PRE_EMPHASIS = 0.97
@@ -188,7 +194,7 @@ class nsynth:
             # Get relevant filenames and prepend full path
             filenames = self.filenames[self.num_accessed:upper]
             filenames = [ os.path.join(self.wav_dir, file+".wav") for file in filenames ]
-            # Process filenames
+            # Process wav chunks
             ffts = self.pool.map(convertWav, filenames)
 
             # Slice correct number of labels     
@@ -231,6 +237,58 @@ class nsynth:
         else: return None
         '''
 
+# Class to pull feedback instances from multiple annotation files
+class feedback:
+    # annotations is a list of csv files that label feedback files
+    def __init__ (self, annotations):
+        
+        # Path to dataset relative to this file
+        abs_path = os.path.abspath(__file__) # Absolute path of this file
+        self.wav_dir = os.path.join(os.path.dirname(abs_path), "feedback")
+        
+        # internal annotations
+        self.dataset = {"wavfile": [], "beginning": [], "duration": []}
+        
+        # Parse each csv
+        for file in annotations:
+            with open(file, mode='r') as labelfile:
+                for line in labelfile:
+                    entry = line.strip("\n").split(",")
+                    self.dataset["wavfile"].append( entry[0] )
+                    self.dataset["beginning"].append( float(entry[1]) )
+                    self.dataset["duration"].append( float(entry[2]) )
+                
+        # Access stats
+        self.num_instances = len(annotations)
+        self.num_accessed = 0 # Increments for every accessed instance
+        
+    # Multithreaded return function. Return num instances
+    def returnInstance(self, num):
+        
+        ffts = None
+        if self.num_accessed < self.num_instances:
+            del ffts
+            upper = self.num_accessed + num # upper access index
+
+            # Get relevant filenames and prepend full path
+            filenames = self.dataset['wavfile'][self.num_accessed:upper]
+            filenames = [ os.path.join(self.wav_dir, file) for file in filenames ]
+            # Get relevant chunks
+            beg = self.dataset['beginning'][self.num_accessed:upper]
+            dur = self.dataset['duration'][self.num_accessed:upper]
+            # Process feedback chunks
+            ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
+                            for x in range(0, len(filenames))]
+
+            # Increment
+            self.num_accessed += num
+
+            return ffts
+
+        # If no more instances to access
+        else:
+            return None
+        
 def main():
     from PIL import Image
     # nsynth dataset top directory
@@ -242,8 +300,19 @@ def main():
 
     #import ipdb; ipdb.set_trace()
     for x in range(0, len(images)):
-      if batch['instrument_family_str'][x] == "flute":
+      if batch['instrument_family_str'][x] == "none":
         img = Image.fromarray(images[x], 'L')
+        img.show()
+        
+        
+    # Feedback data
+    feedback_files = glob.glob("feedback/*.csv")
+    dataset_fb = feedback(feedback_files)
+    fb_ffts = dataset_fb.returnInstance(10)
+    images_fb = [ plotSpectrumBW(fft) for fft in fb_ffts ]
+    
+    for x in range(0, len(fb_ffts)):
+        img = Image.fromarray(images_fb[x], 'L')
         img.show()
 
 if __name__ == "__main__":
