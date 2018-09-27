@@ -79,7 +79,7 @@ def main(unused_argv):
     params['weights'] = weights
 
     # Reduce GPU memory allocation
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.48)
     sess_config = tf.ConfigProto(gpu_options=gpu_options)
     
     # Estimator config to change frequency of ckpt files
@@ -90,7 +90,7 @@ def main(unused_argv):
 
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-        model_fn=conv.autoencoder,
+        model_fn=class_models.classifier,
         model_dir=model_dir,
         config=estimator_config,
         params=params)

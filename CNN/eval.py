@@ -74,13 +74,13 @@ def main(unused_argv):
     params['weights'] = weights
 
     # Reduce GPU memory allocation
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.45)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
     sess_config = tf.ConfigProto(gpu_options=gpu_options)
     estimator_config = tf.estimator.RunConfig(session_config=sess_config)
     
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-        model_fn=conv.autoencoder,
+        model_fn=class_models.classifier,
         model_dir=model_dir,
         config=estimator_config,
         params=params)
