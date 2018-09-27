@@ -71,6 +71,7 @@ def computeFB(sample_rate, nfilters, pow_frames, NFFT):
 # crop_end    : how many seconds to crop input file to
 # NFFT        : how many frequency bins
 # visualize   : to visualize or not to visualize, that is the question
+# convert     : allow for raw time data to be returned
 def convertWav(input, \
                sample_rate=None, \
                frame_size=0.025, \
@@ -78,7 +79,8 @@ def convertWav(input, \
                crop_beg=0, \
                crop_end=4, \
                NFFT=256, \
-               visualize=False):
+               visualize=False, \
+               convert=True):
 
     signal = input
     # If filename supplied
@@ -87,10 +89,14 @@ def convertWav(input, \
 
     # Crop
     duration = len(signal) / sample_rate
-    beg = int(crop_beg * sample_rate) - int(sample_rate*0.1)
-    if beg < 0: beg = 0 # Wouldn't want to wrap to the end
-    end = int(crop_end * sample_rate) + int(sample_rate*0.1)
+    beg = int(crop_beg * sample_rate) - int(sample_rate*0.01)
+    if beg < 0: beg = 0 # Wouldn't want to wrap around the end
+    end = int(crop_end * sample_rate) + int(sample_rate*0.01)
     signal = signal[beg:end]
+    
+    # If an fft conversion isn't requested
+    if not convert:
+        return signal
 
     ###Pre-emphasize signal
     #PRE_EMPHASIS = 0.97
@@ -263,7 +269,8 @@ class feedback:
         self.num_accessed = 0 # Increments for every accessed instance
         
     # Multithreaded return function. Return num instances
-    def returnInstance(self, num):
+    # If unprocessed is True, function returns raw wav data
+    def returnInstance(self, num, unprocessed=False):
         
         ffts = None
         if self.num_accessed < self.num_instances:
@@ -277,7 +284,11 @@ class feedback:
             beg = self.dataset['beginning'][self.num_accessed:upper]
             dur = self.dataset['duration'][self.num_accessed:upper]
             # Process feedback chunks
-            ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
+            if not unprocessed:
+                ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
+                            for x in range(0, len(filenames))]
+            else:
+                ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x], convert=False) \
                             for x in range(0, len(filenames))]
 
             # Increment
@@ -308,12 +319,19 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files)
-    fb_ffts = dataset_fb.returnInstance(10)
-    images_fb = [ plotSpectrumBW(fft) for fft in fb_ffts ]
+    unprocessed = False # Return wav or not
+    feedbacks = dataset_fb.returnInstance(10, unprocessed=unprocessed)
+    if not unprocessed:
+        feedbacks = [ plotSpectrumBW(fft) for fft in feedbacks ]
     
-    for x in range(0, len(fb_ffts)):
-        img = Image.fromarray(images_fb[x], 'L')
-        img.show()
+    for x in range(0, len(feedbacks)):
+        if unprocessed:
+            plt.plot(feedbacks[x])
+            plt.ylabel('feedback sample')
+            plt.show()
+        else:
+            img = Image.fromarray(feedbacks[x], 'L')
+            img.show()
 
 if __name__ == "__main__":
     main()
