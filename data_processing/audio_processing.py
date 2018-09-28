@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import glob
+import random
 
 # Plot BW spectrum picture. Removes infinities
 def plotSpectrumBW(data):
@@ -146,7 +147,7 @@ def convertWav(input, \
 # Class for accessing files in the nsynth dataset
 class nsynth:
 
-    def __init__(self, directory):
+    def __init__(self, directory, fb=False):
 
         self.clmns= ["note",
             "note_str",
@@ -164,14 +165,14 @@ class nsynth:
     
         # Path to dataset relative to this file
         abs_path = os.path.abspath(__file__) # Absolute path of this file
-        self.directory = os.path.join(os.path.dirname(abs_path), directory)
+        self.nsynth_dir= os.path.join(os.path.dirname(abs_path), directory)
     
         # Prepare data for accessing wav files / annotations
-        json_file = os.path.join(self.directory, "examples.json")
+        json_file = os.path.join(self.nsynth_dir, "examples.json")
         with open(json_file, 'r') as f:
             annotations = json.load(f)
         self.filenames = [ filename for filename in annotations ]
-        self.wav_dir = os.path.join(self.directory, "audio")
+        self.wav_dir = os.path.join(self.nsynth_dir, "audio")
         
         # Prepare data for storing wav files / annotations
         self.dataset = {}
@@ -188,20 +189,45 @@ class nsynth:
         #Initialize Threads
         self.pool = Pool(processes=self.num_threads)
         
-    
+        # If feedback insertion requested
+        self.fb_ffts = None
+        if fb:
+            fb_dir = os.path.join(os.path.dirname(abs_path), "feedback")
+            feedback_files = glob.glob(fb_dir+"/*.csv")
+            fb_data = feedback(feedback_files)
+            
+            # Get all feedback samples, duplicate 4 times, and shuffle
+            self.fb_ffts = fb_data.returnInstance(99999, unprocessed=True)
+            self.fb_ffts = self.fb_ffts * 4
+            self.num_fb = len(self.fb_ffts)
+            random.shuffle(self.fb_ffts)
+        
     # Multithreaded return function. Return num instances
     def returnInstance(self, num):
         
         ffts = None
         if self.num_accessed < self.num_instances:
-            del ffts
+            del ffts; ffts = list()
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
             filenames = self.filenames[self.num_accessed:upper]
             filenames = [ os.path.join(self.wav_dir, file+".wav") for file in filenames ]
-            # Process wav chunks
-            ffts = self.pool.map(convertWav, filenames)
+            
+            # If insertion is requested
+            if self.fb_ffts is not None:
+                # Insert a number of feedback samples proportional to the batch size
+                insertions = int( num/self.num_instances * self.num_fb )
+                for i in range(0, insertions):
+                    # Insert feedback into a random element of the batch
+                    random_entry = random.randint(0, len(filenames))
+                    audio = scipy.io.wavfile.read(filenames[random_entry])
+                    audio = audio[::-1] # insert_feedback expecting [audio, sample_rate]
+                    feedback = self.fb_ffts.pop()
+                    insert_feedback(audio, feedback)
+            
+            # Process wavs
+            ffts += self.pool.map(convertWav, filenames)
 
             # Slice correct number of labels     
             data = {}
@@ -243,6 +269,13 @@ class nsynth:
         else: return None
         '''
 
+# Overlays feedback on top of audio, randomly jitters up to 3/4 chop
+def insert_feedback(audio, feedback):
+
+    import ipdb; ipdb.set_trace()
+
+    return 
+
 # Class to pull feedback instances from multiple annotation files
 class feedback:
     # annotations is a list of csv files that label feedback files
@@ -283,13 +316,18 @@ class feedback:
             # Get relevant chunks
             beg = self.dataset['beginning'][self.num_accessed:upper]
             dur = self.dataset['duration'][self.num_accessed:upper]
+            
             # Process feedback chunks
             if not unprocessed:
                 ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
                             for x in range(0, len(filenames))]
             else:
-                ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x], convert=False) \
+                # Get raw audio
+                audios = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x], convert=False) \
                             for x in range(0, len(filenames))]
+                # include sample rates since it's important
+                sample_rates = [scipy.io.wavfile.read(input)[0] for input in filenames]
+                ffts = list( zip(audios, sample_rates) )
 
             # Increment
             self.num_accessed += num
@@ -302,10 +340,11 @@ class feedback:
         
 def main():
     from PIL import Image
-    # nsynth dataset top directory
+    
+    # nsynth dataset
     dir = "nsynth/nsynth-test/"
-    dataset_test = nsynth(dir)
-
+    dataset_test = nsynth(dir, fb=True)
+    print ("Getting nsynth data...")
     batch = dataset_test.returnInstance(100)
     images = [ plotSpectrumBW(image) for image in batch['fft'] ]
 
@@ -320,13 +359,14 @@ def main():
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files)
     unprocessed = False # Return wav or not
+    print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(10, unprocessed=unprocessed)
     if not unprocessed:
         feedbacks = [ plotSpectrumBW(fft) for fft in feedbacks ]
     
     for x in range(0, len(feedbacks)):
         if unprocessed:
-            plt.plot(feedbacks[x])
+            plt.plot(feedbacks[x][0])
             plt.ylabel('feedback sample')
             plt.show()
         else:
