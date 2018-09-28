@@ -102,7 +102,7 @@ def generate(path_to_write, dataset_dir):
     num_instances = 12800
     
     # Nsynth dataset
-    dataset = ap.nsynth(dataset_dir)
+    dataset = ap.nsynth(dataset_dir, fb=True)
 
     batch = dataset.returnInstance(num_instances)
     while batch is not None:
@@ -116,8 +116,10 @@ def generate(path_to_write, dataset_dir):
         instrument_source = np.asarray(instrument_source, dtype=np.int64)
         instrument_family = [ label for label in batch['instrument_family'] ]
         instrument_family = np.asarray(instrument_family, dtype=np.int64)
+        feedback = [ label for label in batch['fb'] ]
+        feedback = np.asarray(feedback, dtype=np.int64)
         # Aggregate labels
-        labels = list( zip(instrument_source, instrument_family) )
+        labels = list( zip(instrument_source, instrument_family, feedback) )
         labels = np.asarray(labels)
         
         # Write tf records
