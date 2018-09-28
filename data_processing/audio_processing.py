@@ -200,9 +200,9 @@ class nsynth:
             feedback_files = glob.glob(fb_dir+"/*.csv")
             fb_data = feedback(feedback_files)
             
-            # Get all feedback samples, duplicate 4 times, and shuffle
+            # Get all feedback samples, duplicate to 20% of dataset, and shuffle
             self.fb_samples = fb_data.returnInstance(99999, unprocessed=True)
-            self.fb_samples = self.fb_samples * 4
+            self.fb_samples = self.fb_samples * int(0.2*self.num_instances/len(self.fb_samples))
             self.num_fb = len(self.fb_samples)
             random.shuffle(self.fb_samples)
         
@@ -229,6 +229,9 @@ class nsynth:
             # Add ffts to output
             data['fft'] = ffts
              
+            ### TODO: multithread feedback insertion
+            ### shuffle exported dataset
+             
             ### Feedback insertion
             if self.fb_samples is not None:
                 # Append a number of feedback samples proportional to the batch size
@@ -236,7 +239,7 @@ class nsynth:
                 for i in range(0, insertions):
                     try: # Catch fb_sample pop errors
                         # Insert feedback into a random instance of the batch
-                        random_entry = random.randint(0, len(filenames))
+                        random_entry = random.randint(0, len(filenames)-1)
                         audio = scipy.io.wavfile.read(filenames[random_entry])[::-1] # Reverse
                         feedback = self.fb_samples.pop()
                         audio_wfeedback = insert_feedback(audio, feedback)
@@ -307,17 +310,17 @@ def insert_feedback(instance, feedback):
         None)                 # state..?
     fb_converted = list(np.frombuffer(fb_converted[0], dtype=np.int16))
     
-    # pad feedback
-    fb_converted += [0]*(len(audio)-len(fb_converted))
+    # prepend feedback with random length of silence up to 1 second
+    # pad to match audio size
+    prepend = random.randint(0, ref_rate*1)
+    pad = len(audio) - (len(fb_converted) + prepend)
+    fb_converted = [0]*prepend + fb_converted + [0]*pad
     
     # add element-wise
     sample = [int(fb_converted[x]/2+audio[x]/2) for x in range(0, len(audio))]
     
     # Convert to fft
     sample = convertWav(sample, sample_rate=ref_rate)
-
-    ### TODO:
-    ### Random pad
     
     return sample
 
@@ -390,7 +393,7 @@ def main():
     dir = "nsynth/nsynth-test/"
     dataset_test = nsynth(dir, fb=True)
     print ("Getting nsynth data...")
-    batch = dataset_test.returnInstance(1000)
+    batch = dataset_test.returnInstance(100)
     images = [ plotSpectrumBW(image) for image in batch['fft'] ]
 
     #import ipdb; ipdb.set_trace()
