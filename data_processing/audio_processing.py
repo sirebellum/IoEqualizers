@@ -87,6 +87,11 @@ def convertWav(input, \
                visualize=False, \
                convert=True):
 
+    # Enable tuple input
+    if type(input) is list:
+        sample_rate = input[1]
+        input = input[0]
+               
     signal = input
     # If filename supplied
     if sample_rate is None:
@@ -189,7 +194,7 @@ class nsynth:
         self.num_accessed = 0 # Increments for every accessed instance
         
         #Multithreading
-        self.num_threads = 4
+        self.num_threads = 10
         #Initialize Threads
         self.pool = Pool(processes=self.num_threads)
         
@@ -211,7 +216,7 @@ class nsynth:
         
         ffts = None
         if self.num_accessed < self.num_instances:
-            del ffts; ffts = list()
+            del ffts
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
@@ -224,29 +229,25 @@ class nsynth:
                 data[clmn] = self.dataset[clmn][self.num_accessed:upper]
                 
             # Process wavs
-            ffts += self.pool.map(convertWav, filenames)
-
-            # Add ffts to output
-            data['fft'] = ffts
+            ffts = self.pool.map(convertWav, filenames)
              
             ### TODO: multithread feedback insertion
             ### shuffle exported dataset
              
             ### Feedback insertion
             if self.fb_samples is not None:
-                # Append a number of feedback samples proportional to the batch size
+                # Get a number of feedback samples proportional to the batch size
                 insertions = int( len(filenames)/self.num_instances * self.num_fb )
+                audio = list()
+                feedback = list()
                 for i in range(0, insertions):
                     try: # Catch fb_sample pop errors
-                        # Insert feedback into a random instance of the batch
+                        # Pair feedback with random entries (overlay and fft later)
                         random_entry = random.randint(0, len(filenames)-1)
-                        audio = scipy.io.wavfile.read(filenames[random_entry])[::-1] # Reverse
-                        feedback = self.fb_samples.pop()
-                        audio_wfeedback = insert_feedback(audio, feedback)
-                        data['fft'].append( audio_wfeedback )
-                        
+                        audio.append( scipy.io.wavfile.read(filenames[random_entry])[::-1] )# Reverse
+                        feedback.append( self.fb_samples.pop() )
                         # Delete used instance & copy labels to new instance
-                        del data['fft'][random_entry]
+                        del ffts[random_entry]
                         del filenames[random_entry]
                         for clmn in self.clmns:
                             data[clmn].append(data[clmn][random_entry])
@@ -255,14 +256,22 @@ class nsynth:
                     except IndexError:
                         insertions -= 1
                         print("Ran out of fb samples!")
-                    
+                        
+                # Get overlayed audio samples
+                input = list( zip(audio, feedback) )
+                audio_wfeedback = self.pool.map(insert_feedback, input)
+                # Get ffts of audios with feedback
+                ffts += self.pool.map(convertWav, audio_wfeedback)
                 # Create feedback label entries
                 feedback_labels = ['0']*(num-insertions) + ['1']*insertions
                 data['fb'] = feedback_labels
-
+                
+            # Add ffts to output
+            data['fft'] = ffts
+            
             # Increment
             self.num_accessed += num
-
+            
             return data
 
         # If no more instances to access
@@ -295,11 +304,16 @@ class nsynth:
         '''
 
 # Overlays feedback on top of audio, randomly jitters to the right
-# Returns fft
-def insert_feedback(instance, feedback):
+# Returns audio samples
+def insert_feedback(input):
 
-    ref_rate = instance[1]
+    # break out input
+    instance = input[0]
+    feedback = input[1]
+
+    # instance/feedback[raw_audio, sample_rate]
     audio = instance[0]
+    ref_rate = instance[1]
     
     # Convert fb sample rate to match instances's
     fb_converted = audioop.ratecv(
@@ -319,10 +333,7 @@ def insert_feedback(instance, feedback):
     # add element-wise
     sample = [int(fb_converted[x]/2+audio[x]/2) for x in range(0, len(audio))]
     
-    # Convert to fft
-    sample = convertWav(sample, sample_rate=ref_rate)
-    
-    return sample
+    return [sample, ref_rate]
 
 # Class to pull feedback instances from multiple annotation files
 class feedback:
