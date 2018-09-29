@@ -263,11 +263,24 @@ class nsynth:
                 # Get ffts of audios with feedback
                 ffts += self.pool.map(convertWav, audio_wfeedback)
                 # Create feedback label entries
-                feedback_labels = ['0']*(num-insertions) + ['1']*insertions
+                feedback_labels = [0]*(num-insertions) + [1]*insertions
                 data['fb'] = feedback_labels
                 
             # Add ffts to output
             data['fft'] = ffts
+            
+            # Break out data dictionary into per-instance list for shuffling
+            temp = list()
+            for key in data.keys():
+                temp.append(data[key])
+            temp = list( zip(*temp) )
+            
+            # Shuffle and reconbine into dictionary
+            random.shuffle(temp)
+            temp = list( zip(*temp) )
+            temp.reverse()
+            for key in data.keys():
+                data[key] = temp.pop()
             
             # Increment
             self.num_accessed += num
