@@ -106,6 +106,11 @@ def classifier(features, labels, mode, params):
         loss=loss,
         global_step=tf.train.get_global_step())
     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
+    
+  # Mask non-feedback values if classifying for feedback
+  class_mask = None
+  if NUMCLASSES == 2:
+    class_mask = labels
 
   # Add evaluation metrics (for EVAL mode)
   eval_metric_ops = {
@@ -115,9 +120,11 @@ def classifier(features, labels, mode, params):
           labels=labels, predictions=predictions["classes"],
           num_classes=NUMCLASSES),
       "recall": tf.metrics.recall(
-          labels=labels, predictions=predictions["classes"]),
+          labels=labels, predictions=predictions["classes"],
+          weights=class_mask),
       "precision": tf.metrics.precision(
-          labels=labels, predictions=predictions["classes"])
+          labels=labels, predictions=predictions["classes"],
+          weights=class_mask)
   }
 
   return tf.estimator.EstimatorSpec(
