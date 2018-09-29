@@ -5,41 +5,6 @@ HEIGHT = 112
 WIDTH = 112
 BETA = 0.001 # L2 Beta
 
-def cnn(input_layer, weights):
-  """Model function for CNN."""
-  
-  # Convolutional Layer #1
-  conv1 = tf.layers.conv2d(
-      inputs=input_layer,
-      filters=16,
-      kernel_size=[5, 5],
-      strides=(1, 1),
-      padding="valid",
-      activation=tf.nn.relu)
-  
-  # Pool Layer #1
-  pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=(1,1))
-  
-  # Convolutional Layer #2
-  conv2 = tf.layers.conv2d(
-      inputs=pool1,
-      filters=32,
-      kernel_size=[5, 5],
-      strides=(1, 1),
-      padding="valid",
-      activation=tf.nn.relu)
-      
-  # Pool Layer #2
-  pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=(1,1))
-  
-  # Pool Layer #3
-  pool3 = tf.layers.max_pooling2d(inputs=pool2, pool_size=[2, 2], strides=(1,1))
-  
-  # Final layer for conversion
-  final = pool3
-  
-  return final
-
 def classifier(features, labels, mode, params):
 
   # Input Layer
