@@ -85,7 +85,7 @@ def main(unused_argv):
     # Estimator config to change frequency of ckpt files
     estimator_config = tf.estimator.RunConfig(
         session_config = sess_config,
-        save_checkpoints_secs = 60*5,  # Save checkpoints every 5 minutes
+        save_checkpoints_secs = 60,  # Save checkpoints every 1 minutes
         keep_checkpoint_max = 2)       # Retain the 2 most recent checkpoints.
 
     # Create the Estimator

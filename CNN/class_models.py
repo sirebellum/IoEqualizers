@@ -98,7 +98,7 @@ def classifier(features, labels, mode, params):
   
   # L2 Regularization for logits
   loss = tf.reduce_mean(loss + tf.losses.get_regularization_loss())
-
+  
   # Configure the Training Op (for TRAIN mode)
   if mode == tf.estimator.ModeKeys.TRAIN:
     optimizer = tf.train.AdamOptimizer()
@@ -113,7 +113,11 @@ def classifier(features, labels, mode, params):
           labels=labels, predictions=predictions["classes"]),
       "mean_accuracy": tf.metrics.mean_per_class_accuracy(
           labels=labels, predictions=predictions["classes"],
-          num_classes=NUMCLASSES)
+          num_classes=NUMCLASSES),
+      "recall": tf.metrics.recall(
+          labels=labels, predictions=predictions["classes"]),
+      "precision": tf.metrics.precision(
+          labels=labels, predictions=predictions["classes"])
   }
 
   return tf.estimator.EstimatorSpec(
