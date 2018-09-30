@@ -4,13 +4,13 @@ import numpy as np
 def parse_record(serialized_example): #parse a single binary example
   """Parses a single tf.Example into image and label tensors."""
   features = {'X': tf.FixedLenFeature([12544,], tf.float32),
-              'Y': tf.FixedLenFeature([3,], tf.int64)}
+              'Y': tf.FixedLenFeature([1,], tf.int64)}
   feature = tf.parse_single_example(serialized_example, features)
   
   image = tf.reshape(feature['X'], (112, 112))
-  instrument_src = feature['Y'][0]
-  instrument_fmly = feature['Y'][1]
-  feedback = feature['Y'][2]
+  #instrument_src = feature['Y'][0]
+  #instrument_fmly = feature['Y'][1]
+  feedback = feature['Y'][0]
   
   label = feedback
   

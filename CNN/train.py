@@ -39,8 +39,8 @@ if args.weights is not None:
 def tfrecord_input():
 
   # Keep list of filenames, so you can input directory of tfrecords easily
-  train_filenames = glob.glob("data_processing/nsynth_ssd/train*tfrecords")
-  valid_filenames = glob.glob("data_processing/nsynth_ssd/valid*tfrecords")
+  train_filenames = glob.glob("data_processing/tfrecords/*tfrecords")
+  valid_filenames = glob.glob("data_processing/tfrecords/*tfrecords")
   batch_size=256
 
   # Import data
