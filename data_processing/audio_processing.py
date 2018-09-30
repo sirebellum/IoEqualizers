@@ -349,7 +349,8 @@ def insert_feedback(input):
 # Class to pull feedback instances from multiple annotation files
 class feedback:
     # annotations is a list of csv files that label feedback files
-    def __init__ (self, annotations):
+    # self_sample indicates that the dataset will return non-feedback samples
+    def __init__ (self, annotations, self_sample=False):
         
         # Path to dataset relative to this file
         abs_path = os.path.abspath(__file__) # Absolute path of this file
@@ -368,8 +369,82 @@ class feedback:
                     self.dataset["duration"].append( float(entry[2]) )
                 
         # Access stats
-        self.num_instances = len(annotations)
+        self.num_instances = len(self.dataset["wavfile"])
         self.num_accessed = 0 # Increments for every accessed instance
+        
+        self.sample_size = 1.15 # 1.15 seconds
+        
+        # Split long feedback into multiple samples
+        delete = list()
+        for x in range(0, self.num_instances):
+            if self.dataset["duration"][x] > self.sample_size*2:
+                delete.append(x) # Delete offending instance later
+                num_splits = int(self.dataset["duration"][x] / self.sample_size)
+                for i in range(0, num_splits):
+                    self.dataset['wavfile'].append(self.dataset['wavfile'][x])
+                    self.dataset['beginning'].append(self.dataset['beginning'][x]+i*self.sample_size)
+                    self.dataset['duration'].append(self.sample_size)
+        for j in sorted(delete, reverse=True):
+            del self.dataset['wavfile'][j]
+            del self.dataset['beginning'][j]
+            del self.dataset['duration'][j]
+                
+        # New access stats
+        self.num_instances = len(self.dataset["wavfile"])
+        
+        # Get indices of non-feedback samples
+        if self_sample:
+            # Create new instance index to indicate the presence of feedback
+            self.dataset['fb'] = []
+            for x in range(0, self.num_instances):
+                nonfb_beg = list()
+                # Pull two samples from right before feedback
+                nonfb_beg.append(self.dataset['beginning'][x] - 0.01 - self.sample_size)
+                nonfb_beg.append(nonfb_beg[-1] - self.sample_size)
+                # two from right after
+                nonfb_beg.append(self.dataset['beginning'][x] + 0.01)
+                nonfb_beg.append(nonfb_beg[-1] + self.sample_size)
+                    
+                # Check new instances for overlap with existing instances
+                delete = list()
+                for j in range(0, len(nonfb_beg)):
+                    for i in range(0, len(self.dataset['beginning'])):
+                        if nonfb_beg[j] > self.dataset['beginning'][i] \
+                        and nonfb_beg[j] < self.dataset['beginning'][i] + self.dataset['duration'][i]:
+                            delete.append(j)
+                delete = set(delete) # Get rid of multiple overlaps
+                for j in sorted(delete, reverse=True):
+                    del nonfb_beg[j]
+                
+                # Create entries
+                if len(nonfb_beg) > 0: # if we didn't delete them all
+                    for beg in nonfb_beg:
+                        self.dataset['wavfile'].append(self.dataset['wavfile'][x])
+                        self.dataset['beginning'].append(beg)
+                        self.dataset['duration'].append(self.sample_size)
+                        self.dataset['fb'].append(0)
+                        
+            # Feedack labels
+            for x in range(0, self.num_instances):
+                self.dataset['fb'].append(1)
+            self.dataset['fb'].reverse()
+            
+            # New access stats
+            self.num_instances = len(self.dataset["wavfile"])
+            
+        # Shuffle everything
+        # Break out dataset dictionary into per-instance list for shuffling
+        temp = list()
+        for key in self.dataset.keys():
+            temp.append(self.dataset[key])
+        temp = list( zip(*temp) )
+        
+        # Shuffle and reconbine into dictionary
+        random.shuffle(temp)
+        temp = list( zip(*temp) )
+        temp.reverse()
+        for key in self.dataset.keys():
+            self.dataset[key] = temp.pop()
         
     # Multithreaded return function. Return num instances
     # If unprocessed is True, function returns raw wav data
@@ -387,22 +462,32 @@ class feedback:
             beg = self.dataset['beginning'][self.num_accessed:upper]
             dur = self.dataset['duration'][self.num_accessed:upper]
             
+            fb = None # self_sample
+            if 'fb' in self.dataset.keys():
+                fb = self.dataset['fb'][self.num_accessed:upper]
+            
+            # Storage dictionary
+            data = {}
+            
             # Process feedback chunks
             if not unprocessed:
                 ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
                             for x in range(0, len(filenames))]
+                data['fft'] = ffts
             else:
                 # Get raw audio
                 audios = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x], convert=False) \
                             for x in range(0, len(filenames))]
                 # include sample rates since it's important
                 sample_rates = [scipy.io.wavfile.read(input)[0] for input in filenames]
-                ffts = list( zip(audios, sample_rates) )
+                data['audio'] = audios
+                data['sample_rate'] = sample_rates
 
             # Increment
             self.num_accessed += num
 
-            return ffts
+            if fb is not None: data['fb'] = fb
+            return data
 
         # If no more instances to access
         else:
@@ -411,7 +496,7 @@ class feedback:
 def main():
     from PIL import Image
     import matplotlib.pyplot as plt
-    
+    '''
     # nsynth dataset
     dir = "nsynth/nsynth-test/"
     dataset_test = nsynth(dir, fb=True)
@@ -425,24 +510,26 @@ def main():
         img = Image.fromarray(images[x], 'L')
         img.show()
         
-    exit()
+    '''
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
-    dataset_fb = feedback(feedback_files)
+    dataset_fb = feedback(feedback_files, self_sample=True)
     unprocessed = False # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     if not unprocessed:
-        feedbacks = [ plotSpectrumBW(fft) for fft in feedbacks ]
+        ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
     
-    for x in range(0, len(feedbacks)):
+    for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
         if unprocessed:
-            plt.plot(feedbacks[x][0])
+          if feedbacks['fb'][x] == 1:
+            plt.plot(feedbacks['audio'][x])
             plt.ylabel('feedback sample')
             plt.show()
         else:
-            img = Image.fromarray(feedbacks[x], 'L')
-            img.show()
+          if feedbacks['fb'][x] == 0:
+            plt.imshow(ffts[x])
+            plt.show()
 
 if __name__ == "__main__":
     main()
