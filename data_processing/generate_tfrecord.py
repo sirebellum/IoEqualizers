@@ -4,6 +4,7 @@ import math
 import numpy as np
 import audio_processing as ap
 import os
+import glob
 
 def label_number(label_string): #turn string into integer
   if "dark" in label_string:
@@ -102,24 +103,27 @@ def generate(path_to_write, dataset_dir):
     num_instances = 12800
     
     # Nsynth dataset
-    dataset = ap.nsynth(dataset_dir, fb=True)
+    #dataset = ap.nsynth(dataset_dir)
 
+    # Feedback dataset
+    feedback_files = glob.glob(dataset_dir+"*.csv")
+    dataset = ap.feedback(feedback_files, self_sample=True)
+    
     batch = dataset.returnInstance(num_instances)
     while batch is not None:
-        #encoded_jpg = cv2.imencode(".jpg", image)[1].tostring()
         images = [ ap.plotSpectrumBW(image).flatten() for image in batch['fft'] ]
         images = np.asarray(images, dtype=np.float32)
         images *= 1/255.0
         
         # Labels
-        instrument_source = [ label for label in batch['instrument_source'] ]
-        instrument_source = np.asarray(instrument_source, dtype=np.int64)
-        instrument_family = [ label for label in batch['instrument_family'] ]
-        instrument_family = np.asarray(instrument_family, dtype=np.int64)
-        feedback = [ label for label in batch['fb'] ]
-        feedback = np.asarray(feedback, dtype=np.int64)
+        #instrument_source = [ label for label in batch['instrument_source'] ]
+        #instrument_source = np.asarray(instrument_source, dtype=np.int64)
+        #instrument_family = [ label for label in batch['instrument_family'] ]
+        #instrument_family = np.asarray(instrument_family, dtype=np.int64)
+        fb = [ label for label in batch['fb'] ]
+        fb = np.asarray(fb, dtype=np.int64)
         # Aggregate labels
-        labels = list( zip(instrument_source, instrument_family, feedback) )
+        labels = list( zip(fb) )
         labels = np.asarray(labels)
         
         # Write tf records
@@ -135,16 +139,20 @@ def generate(path_to_write, dataset_dir):
 def main(_):
 
     ###Create valid tfrecord###
-    path_to_write = os.path.join(os.getcwd()) + '/nsynth/valid'
-    dataset_dir = "nsynth-valid/"
-    generate(path_to_write, dataset_dir)
+    #path_to_write = os.path.join(os.getcwd()) + '/nsynth/valid'
+    #dataset_dir = "nsynth-valid/"
+    #generate(path_to_write, dataset_dir)
         
         
     ###Create Train tfrecords###
-    path_to_write = os.path.join(os.getcwd()) + '/nsynth/train'
-    dataset_dir = "nsynth-train/"
+    #path_to_write = os.path.join(os.getcwd()) + '/nsynth/train'
+    #dataset_dir = "nsynth-train/"
+    #generate(path_to_write, dataset_dir)
+    
+    ###Create Feedback tfrecords###
+    path_to_write = os.path.join(os.getcwd()) + '/tfrecords/feedback'
+    dataset_dir = "feedback/"
     generate(path_to_write, dataset_dir)
-
 
 if __name__ == '__main__':
     tf.app.run()

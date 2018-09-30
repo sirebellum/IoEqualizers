@@ -374,9 +374,10 @@ class feedback:
         
         self.sample_size = 1.15 # 1.15 seconds
         
-        # Split long feedback into multiple samples
+        ### Ensure feedback durations
         delete = list()
         for x in range(0, self.num_instances):
+            # Chop up long samples
             if self.dataset["duration"][x] > self.sample_size*2:
                 delete.append(x) # Delete offending instance later
                 num_splits = int(self.dataset["duration"][x] / self.sample_size)
@@ -384,15 +385,21 @@ class feedback:
                     self.dataset['wavfile'].append(self.dataset['wavfile'][x])
                     self.dataset['beginning'].append(self.dataset['beginning'][x]+i*self.sample_size)
                     self.dataset['duration'].append(self.sample_size)
+            # Pad short samples
+            if self.dataset["duration"][x] < self.sample_size:
+                self.dataset["beginning"][x] -= self.sample_size - self.dataset["duration"][x]
+                self.dataset["duration"][x] = self.sample_size
+                
+        # Delete chopped up samples
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
             del self.dataset['beginning'][j]
             del self.dataset['duration'][j]
-                
+        
         # New access stats
         self.num_instances = len(self.dataset["wavfile"])
         
-        # Get indices of non-feedback samples
+        ### Non-feedback samples
         if self_sample:
             # Create new instance index to indicate the presence of feedback
             self.dataset['fb'] = []
@@ -432,7 +439,7 @@ class feedback:
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
             
-        # Shuffle everything
+        ### Shuffle everything
         # Break out dataset dictionary into per-instance list for shuffling
         temp = list()
         for key in self.dataset.keys():
