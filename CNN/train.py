@@ -3,7 +3,6 @@ import numpy as np
 import os
 import argparse
 import tensorflow as tf
-import data_processing.audio_processing as ap
 from functions import parse_record, get_weights
 import class_models
 import glob

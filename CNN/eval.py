@@ -4,7 +4,6 @@ import os
 import argparse
 import inotify.adapters
 import tensorflow as tf
-import data_processing.audio_processing as ap
 from functions import parse_record, get_weights
 import class_models
 import glob
