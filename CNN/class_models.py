@@ -39,6 +39,10 @@ def classifier(features, labels, mode, params):
     kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
     units=NUMCLASSES)
 
+  # If predict, return logits!
+  if mode == tf.estimator.ModeKeys.PREDICT:
+    return logits
+    
   predictions = {
       # Generate predictions (for PREDICT and EVAL mode)
       "classes": tf.argmax(input=logits, axis=1),
@@ -54,9 +58,6 @@ def classifier(features, labels, mode, params):
         input_layer,
         max_outputs=9
       )
-  
-  if mode == tf.estimator.ModeKeys.PREDICT:
-    return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
 
   # Calculate Loss (for both TRAIN and EVAL modes)
   loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
