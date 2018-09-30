@@ -3,7 +3,7 @@ import csv
 
 # Function meant to be used to parse seconds
 def create_entry(wavfile, beg, end):
-    
+  try:
     Beginning = beg.split(":")
     Ending = end.split(":")
     
@@ -40,7 +40,9 @@ def create_entry(wavfile, beg, end):
     print("Feedback for {} seconds".format(duration))
     
     return [wavfile, start, duration]
-
+    
+  except ValueError:
+    return None
 if __name__ == "__main__":
     
     
