@@ -83,14 +83,14 @@ def main(_):
         # It receives an image and its dimensions and output the segmentation mask
         prediction_signature = (
             tf.saved_model.signature_def_utils.build_signature_def(
-                inputs={'images': tensor_info_input, 'height': tensor_info_height, 'width': tensor_info_width},
-                outputs={'classification': tensor_info_output},
+                inputs={'image': tensor_info_input, 'height': tensor_info_height, 'width': tensor_info_width},
+                outputs={'class': tensor_info_output},
                 method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
 
         builder.add_meta_graph_and_variables(
             sess, [tf.saved_model.tag_constants.SERVING],
             signature_def_map={
-                'predict_images':
+                'predict_class':
                     prediction_signature,
             })
 
