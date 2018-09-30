@@ -385,8 +385,12 @@ class feedback:
                     self.dataset['wavfile'].append(self.dataset['wavfile'][x])
                     self.dataset['beginning'].append(self.dataset['beginning'][x]+i*self.instance_size)
                     self.dataset['duration'].append(self.instance_size)
-            # Pad short instances at the end
+            # Pad short instances before and after (duplicate)
             if self.dataset["duration"][x] < self.instance_size:
+                before_pad = self.dataset['beginning'][x] + self.dataset["duration"][x] - self.instance_size
+                self.dataset['wavfile'].append(self.dataset['wavfile'][x])
+                self.dataset['beginning'].append(before_pad)
+                self.dataset['duration'].append(self.instance_size)
                 self.dataset["duration"][x] = self.instance_size
                 
         # Delete chopped up instances
