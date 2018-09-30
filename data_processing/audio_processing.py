@@ -204,7 +204,6 @@ class nsynth:
             fb_dir = os.path.join(os.path.dirname(abs_path), "feedback")
             feedback_files = glob.glob(fb_dir+"/*.csv")
             fb_data = feedback(feedback_files)
-            
             # Get all feedback samples, duplicate to 20% of dataset, and shuffle
             self.fb_samples = fb_data.returnInstance(99999, unprocessed=True)
             self.fb_samples = self.fb_samples * int(0.2*self.num_instances/len(self.fb_samples))
@@ -216,7 +215,7 @@ class nsynth:
         
         ffts = None
         if self.num_accessed < self.num_instances:
-            del ffts
+            del ffts; ffts = list()
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
@@ -230,9 +229,6 @@ class nsynth:
                 
             # Process wavs
             ffts = self.pool.map(convertWav, filenames)
-             
-            ### TODO: multithread feedback insertion
-            ### shuffle exported dataset
              
             ### Feedback insertion
             if self.fb_samples is not None:
@@ -422,7 +418,7 @@ def main():
 
     #import ipdb; ipdb.set_trace()
     for x in range(0, len(images)):
-      if batch['fb'][x] == "1":
+      if batch['fb'][x] == 1:
         img = Image.fromarray(images[x], 'L')
         img.show()
         
