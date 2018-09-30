@@ -84,7 +84,7 @@ def main(_):
         prediction_signature = (
             tf.saved_model.signature_def_utils.build_signature_def(
                 inputs={'images': tensor_info_input, 'height': tensor_info_height, 'width': tensor_info_width},
-                outputs={'segmentation_map': tensor_info_output},
+                outputs={'classification': tensor_info_output},
                 method_name=tf.saved_model.signature_constants.PREDICT_METHOD_NAME))
 
         builder.add_meta_graph_and_variables(
