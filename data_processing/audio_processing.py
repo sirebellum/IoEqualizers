@@ -4,7 +4,6 @@ import json
 import os
 import scipy.io.wavfile
 import numpy as np
-import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import glob
 import random
@@ -29,7 +28,8 @@ def plotSpectrumBW(data):
     # Slice to make even square
     data = data[len(data)-HEIGHT:len(data), 0:WIDTH]
     return data
-    
+
+
 # Plot spectrum picture
 def plotSpectrum(data):
     fig, ax = plt.subplots(figsize=(data[:,1].size, data[0].size), dpi=1)
@@ -312,6 +312,7 @@ class nsynth:
         else: return None
         '''
 
+
 # Overlays feedback on top of audio, randomly jitters to the right
 # Returns audio samples
 def insert_feedback(input):
@@ -343,6 +344,7 @@ def insert_feedback(input):
     sample = [int(fb_converted[x]/2+audio[x]/2) for x in range(0, len(audio))]
     
     return [sample, ref_rate]
+
 
 # Class to pull feedback instances from multiple annotation files
 class feedback:
@@ -408,6 +410,7 @@ class feedback:
         
 def main():
     from PIL import Image
+    import matplotlib.pyplot as plt
     
     # nsynth dataset
     dir = "nsynth/nsynth-test/"

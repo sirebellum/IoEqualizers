@@ -1,18 +1,17 @@
 from __future__ import print_function
-from PIL import Image
-import tensorflow as tf
 import numpy as np
-import base64
 import json
 import requests
+import data_processing.audio_processing as ap
 
 # Server data
-server = 'localhost:8501' # Rest API port, grpc is 8500
+server = '192.168.12.3:8501' # Rest API port, grpc is 8500
 model_name = 'feedback'
 signature_name = 'predict_class'
 url = "http://"+server+"/v1/models/"+model_name+":predict"
 
 # Function to create instance json for multiple images
+# Input image is of type float32 [0, 1]
 def create_json(images, signature_name):
 
     # Assume size is the same
@@ -34,21 +33,62 @@ def create_json(images, signature_name):
     
     return json_request
 
-# Feedback data
-import data_processing.audio_processing as ap
-dataset = ap.nsynth("nsynth/nsynth-test", fb=True)
 
-# Get data
-batch = dataset.returnInstance(10)
-images = [ ap.plotSpectrumBW(image) for image in batch['fft'] ]
-images = np.asarray(images, dtype=np.float32)
-images *= 1/255.0
+if __name__ == "__main__":
+    import scipy.io.wavfile
+    import pyaudio  
+    import wave  
+    
+    # Signal processing signal
+    input = "poetry_slam_ringout.wav"
+    sample_rate, signal = scipy.io.wavfile.read(input)
+    
+    # Get ffts
+    instance_size = int(sample_rate*1.14) # 1.15 seconds
+    ffts = [ap.convertWav(signal[0+x:x+instance_size], sample_rate=sample_rate) \
+                for x in range(0, len(signal), instance_size)]
+    ffts.reverse()
+    
+    # Audio playback setup
+    f = wave.open(input,"rb")  
+    #define stream chunk   
+    chunk = 1024
+    #instantiate PyAudio  
+    p = pyaudio.PyAudio()  
+    #open stream  
+    stream = p.open(format = p.get_format_from_width(f.getsampwidth()),  
+                    channels = f.getnchannels(),  
+                    rate = f.getframerate(),  
+                    output = True)  
+                   
+                    
+    # Begin playback and real-time processing 
+    data = f.readframes(chunk)
+    frame = 0
+    while data:
+        stream.write(data)
+        
+        if frame*chunk > instance_size:
+            # Detect feedback
+            image = ap.plotSpectrumBW(ffts.pop())
+            image = np.asarray(image, dtype=np.float32)
+            image *= 1/255.0
+            
+            # Turn into json request
+            json_request = create_json([image], signature_name)
+            
+            # Get predictions
+            output = requests.post(url, data=json_request)
+            predictions = output.json()['predictions']
+            if predictions[0] == 1: print("Feedback!")
+            frame = 0
+        
+        frame += 1
+        data = f.readframes(chunk) 
 
-# Turn into json request
-json_request = create_json(images, signature_name)
 
-# Get preidctions
-output = requests.post(url, data=json_request)
-predictions = output.json()['predictions']
-
-print(predictions, batch['fb'])
+    #stop stream  
+    stream.stop_stream()
+    stream.close()
+    #close PyAudio  
+    p.terminate()
