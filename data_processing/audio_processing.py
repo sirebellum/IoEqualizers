@@ -11,7 +11,7 @@ import audioop
 
 # Crop dimensions
 HEIGHT = 112
-WIDTH = 112
+WIDTH = 56
 # Plot BW spectrum picture. Removes infinities
 def plotSpectrumBW(data):
     
@@ -372,7 +372,7 @@ class feedback:
         self.num_instances = len(self.dataset["wavfile"])
         self.num_accessed = 0 # Increments for every accessed instance
         
-        self.instance_size = 1.15 # 1.15 seconds
+        self.instance_size = 0.6 # 0.6 seconds
         
         ### Ensure feedback durations
         delete = list()
