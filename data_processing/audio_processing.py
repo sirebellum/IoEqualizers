@@ -469,7 +469,7 @@ class feedback:
                         
                     else: # Check for overlap
                         for x in range(0, len(self.dataset['beginning'])): 
-                            if overlap(beg, 
+                            if overlap(beg/sample_rate, 
                                        self.instance_size,
                                        self.dataset['beginning'][x],
                                        self.dataset['duration'][x]):
