@@ -432,7 +432,8 @@ class feedback:
                         if overlap(nonfb_beg[j],
                                    self.instance_size,
                                    self.dataset['beginning'][i],
-                                   self.dataset['duration'][i]):
+                                   self.dataset['duration'][i]) \
+                        and self.dataset['wavfile'][x] != self.dataset['wavfile'][i]:
                             delete.append(j)
                 delete = set(delete) # Get rid of multiple overlaps
                 for j in sorted(delete, reverse=True):
@@ -472,7 +473,8 @@ class feedback:
                             if overlap(beg/sample_rate, 
                                        self.instance_size,
                                        self.dataset['beginning'][x],
-                                       self.dataset['duration'][x]):
+                                       self.dataset['duration'][x]) \
+                            and wav != self.dataset['wavfile'][x]:
                                 beg += int(instance_samples/4) # Move window forward
                                 
                             else: # We did it!
