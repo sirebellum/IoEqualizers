@@ -2,7 +2,7 @@ import tensorflow as tf
 from autoencoders import conv
 extract = conv.encode
 HEIGHT = 112
-WIDTH = 112
+WIDTH = 56
 BETA = 0.001 # L2 Beta
 
 def classifier(features, labels, mode, params):

@@ -1,13 +1,15 @@
 import tensorflow as tf
 import numpy as np
+HEIGHT = 112
+WIDTH = 56
       
 def parse_record(serialized_example): #parse a single binary example
   """Parses a single tf.Example into image and label tensors."""
-  features = {'X': tf.FixedLenFeature([12544,], tf.float32),
+  features = {'X': tf.FixedLenFeature([HEIGHT*WIDTH,], tf.float32),
               'Y': tf.FixedLenFeature([1,], tf.int64)}
   feature = tf.parse_single_example(serialized_example, features)
   
-  image = tf.reshape(feature['X'], (112, 112))
+  image = tf.reshape(feature['X'], (WIDTH, HEIGHT))
   #instrument_src = feature['Y'][0]
   #instrument_fmly = feature['Y'][1]
   feedback = feature['Y'][0]

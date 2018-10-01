@@ -1,7 +1,7 @@
 import tensorflow as tf
 import math
 HEIGHT = 112
-WIDTH = 112
+WIDTH = 56
 NOIS_MEAN = 0.0
 NOISE_STD = 0.2
 BETA = 0.001
@@ -82,9 +82,9 @@ def conv_instrument(features, kernels, biases):
     pool_freq4 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 1), padding='same', name='pool8-')(conv_freq4)
     
     # Pad smaller feature maps
-    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [0, 0,], [17, 17], [0, 0]]))
-    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [0, 0,], [15, 15], [0, 0]]))
-    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [0, 0,], [11, 11], [0, 0]]))
+    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [0, 0,], [8, 9], [0, 0]]))
+    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [0, 0,], [7, 8], [0, 0]]))
+    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [0, 0,], [5, 6], [0, 0]]))
     
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 3)

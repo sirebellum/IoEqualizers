@@ -43,7 +43,7 @@ def tfrecord_input():
 
     # Keep list of filenames, so you can input directory of tfrecords easily
     train_filenames = glob.glob("data_processing/tfrecords/*tfrecords")
-    valid_filenames = glob.glob("data_processing/tfrecords/*tfrecords")
+    valid_filenames = glob.glob("data_processing/tfrecords/val*tfrecords")
     batch_size=256
 
     # Import data
