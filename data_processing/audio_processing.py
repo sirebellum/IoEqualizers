@@ -553,7 +553,9 @@ class feedback:
         
 def main():
     from PIL import Image
-    import matplotlib.pyplot as plt
+    #import matplotlib.pyplot as plt
+    import wave
+    import pyaudio
     '''
     # nsynth dataset
     dir = "nsynth/nsynth-test/"
@@ -572,22 +574,53 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True)
-    unprocessed = False # Return wav or not
+    unprocessed = True # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     if not unprocessed:
         ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
     
-    for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
-        if unprocessed:
-          if feedbacks['fb'][x] == 0:
-            plt.plot(feedbacks['audio'][x])
-            plt.ylabel('feedback sample')
-            plt.show()
-        else:
-          if feedbacks['fb'][x] == 1:
-            plt.imshow(ffts[x])
-            plt.show()
+    # Set up audio output
+    #define stream chunk   
+    chunk = 1024
+    #instantiate PyAudio  
+    p = pyaudio.PyAudio()  
+    #open stream  
+    stream = p.open(format=pyaudio.paInt16,  
+                    channels=1,  
+                    rate=feedbacks['sample_rate'][0],  
+                    output=True)  
+                    
+    
+    while feedbacks is not None:
+        for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
+            # Play audio
+            if unprocessed:
+                if feedbacks['fb'][x] == 0:
+              
+                    # Write to temp wav file
+                    scipy.io.wavfile.write('temp.wav', feedbacks['sample_rate'][x], feedbacks['audio'][x])
+                    f = wave.open('temp.wav',"rb")  
+                    # Begin playback
+                    data = f.readframes(chunk)
+                    while data:
+                        stream.write(data)
+                        data = f.readframes(chunk)
+            
+            # Display FFTs
+            else:
+                if feedbacks['fb'][x] == 1:
+                    plt.imshow(ffts[x])
+                    plt.show()
+        
+        # Get next batch
+        feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
+
+    #stop stream  
+    stream.stop_stream()
+    stream.close()
+    #close PyAudio  
+    p.terminate()
 
 if __name__ == "__main__":
     main()
