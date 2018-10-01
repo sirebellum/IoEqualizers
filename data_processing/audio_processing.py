@@ -384,17 +384,14 @@ class feedback:
                 num_splits = int(self.dataset["duration"][x] / self.instance_size)+1
                 for i in range(0, num_splits):
                     self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                    self.dataset['beginning'].append(self.dataset['beginning'][x]+i*self.instance_size)
+                    new_beginning = self.dataset['beginning'][x]+i*self.instance_size
+                    self.dataset['beginning'].append(new_beginning)
                     self.dataset['duration'].append(self.instance_size)
                     
-            # Pad short instances before and after (duplicate)
+            # Pad short instances after
             if self.dataset["duration"][x] < self.instance_size:
-                before_pad = self.dataset['beginning'][x] + self.dataset["duration"][x] - self.instance_size
-                self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                self.dataset['beginning'].append(before_pad)
-                self.dataset['duration'].append(self.instance_size)
                 self.dataset["duration"][x] = self.instance_size
-                
+        
         # Delete chopped up instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
@@ -404,8 +401,14 @@ class feedback:
         # New access stats
         self.num_instances = len(self.dataset["wavfile"])
         
+        
         ### Non-feedback samples
         if self_sample:
+        
+            # Append feedback labels for all the actual feedback
+            self.dataset['fb'] = []
+            for x in range(0, self.num_instances):
+                self.dataset['fb'].append(1)
         
             # Function for checking overlap between two samples
             def overlap(beg1, dur1, beg2, dur2):
@@ -415,11 +418,6 @@ class feedback:
                 if beg1 <= end2 and end1 >= beg2:
                     return True
                 else: return False
-            
-            # Append feedback labels for all the actual feedback
-            self.dataset['fb'] = []
-            for x in range(0, self.num_instances):
-                self.dataset['fb'].append(1)
             
             # Get up to 4 non-feedback instances adjacent to actual feedback
             for x in range(0, self.num_instances):
@@ -452,12 +450,11 @@ class feedback:
                         self.dataset['beginning'].append(beg)
                         self.dataset['duration'].append(self.instance_size)
                         self.dataset['fb'].append(0)
-            # Done with adjacent feedback sampling
+            # Done with adjacent feedback instancing
             
-            # greedily sample non-quiet areas of wavs
+            # Greedily sample non-quiet areas of wavs
             wavs = set(self.dataset['wavfile'])
-            add_instances = self.num_instances # num_instances = num_feedbacks
-            self.num_instances = len(self.dataset["wavfile"]) # num_instances = num_instances
+            add_instances = sum(self.dataset['fb']) # num_feedbacks
             threshold = 100 # Avg per sample
             
             # Per wav file
@@ -468,11 +465,15 @@ class feedback:
                 
                 added = 0
                 beg = 0 
-                while beg < samples and added < add_instances/len(wavs): # instances per wav
+                while beg < samples-instance_samples \
+                and added < add_instances/len(wavs): # instances per wav
                     
-                    volume = sum(abs(signal[beg:beg+instance_samples]))/instance_samples
+                    # Calculate avg volume per sample
+                    volumes = abs(signal[beg:beg+instance_samples])
+                    volume = sum(volumes)/instance_samples
                     if volume < threshold: # Check for volume
                         beg += instance_samples # Move window forward and try again
+                        continue
                         
                     else: # Check for overlap
                         for x in range(0, len(self.dataset['beginning'])): 
@@ -482,16 +483,20 @@ class feedback:
                                        self.dataset['duration'][x]) \
                             and wav == self.dataset['wavfile'][x]:
                                 beg += instance_samples # Move window forward
-                                
-                            else: # We did it!
-                                self.dataset['wavfile'].append(wav)
-                                self.dataset['beginning'].append(beg/sample_rate)
-                                self.dataset['duration'].append(self.instance_size)
-                                self.dataset['fb'].append(0)
-                                added += 1
-                                beg += instance_samples
+                                good = False
                                 break
                                 
+                            else: # Nothing overlapped
+                                good = True
+                            
+                    if good:
+                        # We did it!
+                        self.dataset['wavfile'].append(wav)
+                        self.dataset['beginning'].append(beg/sample_rate)
+                        self.dataset['duration'].append(self.instance_size)
+                        self.dataset['fb'].append(0)
+                        added += 1
+                        beg += instance_samples*2 # Jump ahead      
             # Done with non-silent sampling
             
             # New access stats
