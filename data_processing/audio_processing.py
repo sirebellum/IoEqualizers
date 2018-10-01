@@ -372,25 +372,28 @@ class feedback:
         self.num_instances = len(self.dataset["wavfile"])
         self.num_accessed = 0 # Increments for every accessed instance
         
-        self.sample_size = 1.15 # 1.15 seconds
+        self.instance_size = 1.15 # 1.15 seconds
         
         ### Ensure feedback durations
         delete = list()
         for x in range(0, self.num_instances):
-            # Chop up long samples
-            if self.dataset["duration"][x] > self.sample_size*2:
+            # Chop up long instances
+            if self.dataset["duration"][x] > self.instance_size*2:
                 delete.append(x) # Delete offending instance later
-                num_splits = int(self.dataset["duration"][x] / self.sample_size)
+                num_splits = int(self.dataset["duration"][x] / self.instance_size)
                 for i in range(0, num_splits):
                     self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                    self.dataset['beginning'].append(self.dataset['beginning'][x]+i*self.sample_size)
-                    self.dataset['duration'].append(self.sample_size)
-            # Pad short samples
-            if self.dataset["duration"][x] < self.sample_size:
-                self.dataset["beginning"][x] -= self.sample_size - self.dataset["duration"][x]
-                self.dataset["duration"][x] = self.sample_size
+                    self.dataset['beginning'].append(self.dataset['beginning'][x]+i*self.instance_size)
+                    self.dataset['duration'].append(self.instance_size)
+            # Pad short instances before and after (duplicate)
+            if self.dataset["duration"][x] < self.instance_size:
+                before_pad = self.dataset['beginning'][x] + self.dataset["duration"][x] - self.instance_size
+                self.dataset['wavfile'].append(self.dataset['wavfile'][x])
+                self.dataset['beginning'].append(before_pad)
+                self.dataset['duration'].append(self.instance_size)
+                self.dataset["duration"][x] = self.instance_size
                 
-        # Delete chopped up samples
+        # Delete chopped up instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
             del self.dataset['beginning'][j]
@@ -401,40 +404,86 @@ class feedback:
         
         ### Non-feedback samples
         if self_sample:
-            # Create new instance index to indicate the presence of feedback
+        
+            # Append feedback labels for all the actual feedback
             self.dataset['fb'] = []
             for x in range(0, self.num_instances):
+                self.dataset['fb'].append(1)
+        
+            # Get up to 4 non-feedback instances adjacent to actual feedback
+            for x in range(0, self.num_instances):
                 nonfb_beg = list()
-                # Pull two samples from right before feedback
-                nonfb_beg.append(self.dataset['beginning'][x] - 0.01 - self.sample_size)
-                nonfb_beg.append(nonfb_beg[-1] - self.sample_size)
-                # two from right after
-                nonfb_beg.append(self.dataset['beginning'][x] + 0.01)
-                nonfb_beg.append(nonfb_beg[-1] + self.sample_size)
-                    
+                # Pull two instances from right before feedback and two from right after
+                nonfb_beg.append(self.dataset['beginning'][x] - 0.01 - self.instance_size)
+                nonfb_beg.append(nonfb_beg[-1] - self.instance_size)
+                nonfb_beg.append(self.dataset['beginning'][x] + self.dataset['duration'][x])
+                nonfb_beg.append(nonfb_beg[-1] + self.instance_size)
+                
+                def overlap(beg1, dur1, beg2, dur2):
+                    if beg1 > beg2 and beg1 < beg2 + dur2:
+                        return True
+                    elif beg2 > beg1 and beg2 < beg1 + dur1:
+                        return True
+                    else: return False
                 # Check new instances for overlap with existing instances
                 delete = list()
                 for j in range(0, len(nonfb_beg)):
                     for i in range(0, len(self.dataset['beginning'])):
-                        if nonfb_beg[j] > self.dataset['beginning'][i] \
-                        and nonfb_beg[j] < self.dataset['beginning'][i] + self.dataset['duration'][i]:
+                        if overlap(nonfb_beg[j],
+                                   self.instance_size,
+                                   self.dataset['beginning'][i],
+                                   self.dataset['duration'][i]):
                             delete.append(j)
                 delete = set(delete) # Get rid of multiple overlaps
                 for j in sorted(delete, reverse=True):
                     del nonfb_beg[j]
                 
-                # Create entries
-                if len(nonfb_beg) > 0: # if we didn't delete them all
+                # Create entries for remaining instances
+                if len(nonfb_beg) > 0:
                     for beg in nonfb_beg:
                         self.dataset['wavfile'].append(self.dataset['wavfile'][x])
                         self.dataset['beginning'].append(beg)
-                        self.dataset['duration'].append(self.sample_size)
+                        self.dataset['duration'].append(self.instance_size)
                         self.dataset['fb'].append(0)
+            # Done with adjacent feedback sampling
+            
+            # greedily sample non-quiet areas of wavs proportinal to feedback instances
+            wavs = set(self.dataset['wavfile'])
+            add_instances = self.num_instances # num_instances = num_feedbacks
+            self.num_instances = len(self.dataset["wavfile"]) # num_instances = num_instances
+            threshold = 100 # Avg per sample
+            
+            # Per wav file
+            for wav in wavs:
+                sample_rate, signal = scipy.io.wavfile.read(os.path.join(self.wav_dir, wav))
+                samples = len(signal)
+                instance_samples = int(self.instance_size*sample_rate)
+                
+                added = 0
+                beg = 0 
+                while beg < samples and added < add_instances/len(wavs): # instances per wav
+                    
+                    volume = sum(abs(signal[beg:beg+instance_samples]))/instance_samples
+                    if volume < threshold: # Check for volume
+                        beg += int(instance_samples/4) # Move window forward and try again
                         
-            # Feedack labels
-            for x in range(0, self.num_instances):
-                self.dataset['fb'].append(1)
-            self.dataset['fb'].reverse()
+                    else: # Check for overlap
+                        for x in range(0, len(self.dataset['beginning'])): 
+                            if overlap(beg, 
+                                       self.instance_size,
+                                       self.dataset['beginning'][x],
+                                       self.dataset['duration'][x]):
+                                beg += int(instance_samples/4) # Move window forward
+                                
+                            else: # We did it!
+                                self.dataset['wavfile'].append(wav)
+                                self.dataset['beginning'].append(beg/sample_rate)
+                                self.dataset['duration'].append(self.instance_size)
+                                self.dataset['fb'].append(0)
+                                added += 1
+                                break
+                                
+            # Done with non-silent sampling
             
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
@@ -529,12 +578,12 @@ def main():
     
     for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
         if unprocessed:
-          if feedbacks['fb'][x] == 1:
+          if feedbacks['fb'][x] == 0:
             plt.plot(feedbacks['audio'][x])
             plt.ylabel('feedback sample')
             plt.show()
         else:
-          if feedbacks['fb'][x] == 0:
+          if feedbacks['fb'][x] == 1:
             plt.imshow(ffts[x])
             plt.show()
 
