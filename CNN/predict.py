@@ -3,6 +3,7 @@ import numpy as np
 import json
 import requests
 import data_processing.audio_processing as ap
+from multiprocessing import Process, Queue
 
 # Server data
 server = '192.168.12.3:8501' # Rest API port, grpc is 8500
@@ -32,6 +33,47 @@ def create_json(images, signature_name):
     json_request = json.dumps(request_dict)
     
     return json_request
+    
+# Function ment to play wav in other thread, outputing whenever a certain
+#   number of frames are processed
+def wav_player(filename, queue):
+    global instance_size # Instance size
+
+    # Audio playback setup
+    f = wave.open(filename,"rb")  
+    #define stream chunk   
+    chunk = 1024
+    #instantiate PyAudio  
+    p = pyaudio.PyAudio()  
+    #open stream  
+    stream = p.open(format=p.get_format_from_width(f.getsampwidth()),  
+                    channels=f.getnchannels(),  
+                    rate=f.getframerate(),  
+                    output=True)  
+                   
+                    
+    # Begin playback
+    data = f.readframes(chunk)
+    frame = 0
+    while data:
+        stream.write(data)
+        # Indicate calculation
+        if frame*chunk > instance_size:
+            queue.put(True)
+            frame = 0
+        
+        frame += 1
+        data = f.readframes(chunk) 
+
+
+    #stop stream  
+    stream.stop_stream()
+    stream.close()
+    #close PyAudio  
+    p.terminate()
+    
+    # End calculations
+    queue.put(False)
 
 
 if __name__ == "__main__":
@@ -44,51 +86,30 @@ if __name__ == "__main__":
     sample_rate, signal = scipy.io.wavfile.read(input)
     
     # Get ffts
-    instance_size = int(sample_rate*1.14) # 1.15 seconds
+    instance_size = int(sample_rate*1.15) # 1.15 seconds
     ffts = [ap.convertWav(signal[0+x:x+instance_size], sample_rate=sample_rate) \
                 for x in range(0, len(signal), instance_size)]
     ffts.reverse()
     
-    # Audio playback setup
-    f = wave.open(input,"rb")  
-    #define stream chunk   
-    chunk = 1024
-    #instantiate PyAudio  
-    p = pyaudio.PyAudio()  
-    #open stream  
-    stream = p.open(format = p.get_format_from_width(f.getsampwidth()),  
-                    channels = f.getnchannels(),  
-                    rate = f.getframerate(),  
-                    output = True)  
-                   
-                    
-    # Begin playback and real-time processing 
-    data = f.readframes(chunk)
-    frame = 0
-    while data:
-        stream.write(data)
+    # Launch wav reader with indicator queue
+    execute_queue = Queue()
+    wav = Process(target=wav_player,
+                  args=(input,
+                        execute_queue),
+                  daemon = True)
+    wav.start()
+    
+    # Detect feedback
+    while execute_queue.get() == True:
+        image = ap.plotSpectrumBW(ffts.pop())
+        image = np.asarray(image, dtype=np.float32)
+        image *= 1/255.0
         
-        if frame*chunk > instance_size:
-            # Detect feedback
-            image = ap.plotSpectrumBW(ffts.pop())
-            image = np.asarray(image, dtype=np.float32)
-            image *= 1/255.0
-            
-            # Turn into json request
-            json_request = create_json([image], signature_name)
-            
-            # Get predictions
-            output = requests.post(url, data=json_request)
-            predictions = output.json()['predictions']
-            if predictions[0] == 1: print("Feedback!")
-            frame = 0
+        # Turn into json request
+        json_request = create_json([image], signature_name)
         
-        frame += 1
-        data = f.readframes(chunk) 
-
-
-    #stop stream  
-    stream.stop_stream()
-    stream.close()
-    #close PyAudio  
-    p.terminate()
+        # Get predictions
+        output = requests.post(url, data=json_request)
+        predictions = output.json()['predictions']
+        if predictions[0] == 1: print("Feedback!")
+    
