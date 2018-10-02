@@ -97,12 +97,12 @@ def convertWav(input, \
     if sample_rate is None:
         sample_rate, signal = scipy.io.wavfile.read(input)
 
-    # Crop
-    duration = len(signal) / sample_rate
-    beg = int(crop_beg * sample_rate) - int(sample_rate*0.01)
-    if beg < 0: beg = 0 # Wouldn't want to wrap around the end
-    end = int(crop_end * sample_rate) + int(sample_rate*0.01)
-    signal = signal[beg:end]
+        # Crop
+        duration = len(signal) / sample_rate
+        beg = int(crop_beg * sample_rate) - int(sample_rate*0.01)
+        if beg < 0: beg = 0 # Wouldn't want to wrap around the end
+        end = int(crop_end * sample_rate) + int(sample_rate*0.01)
+        signal = signal[beg:end]
     
     # If an fft conversion isn't requested
     if not convert:
