@@ -454,7 +454,7 @@ class feedback:
             
             # Greedily sample non-quiet areas of wavs
             wavs = set(self.dataset['wavfile'])
-            add_instances = sum(self.dataset['fb']) # num_feedbacks
+            add_instances = sum(self.dataset['fb'])*4 # num_feedbacks
             threshold = 100 # Avg per sample
             
             # Per wav file
@@ -470,11 +470,10 @@ class feedback:
                     
                     # Calculate avg volume per sample
                     volumes = abs(signal[beg:beg+instance_samples])
-                    volume = sum(volumes)/instance_samples
+                    volume = sum(volumes)/len(volumes)
                     if volume < threshold: # Check for volume
                         beg += instance_samples # Move window forward and try again
                         continue
-                        
                     else: # Check for overlap
                         for x in range(0, len(self.dataset['beginning'])): 
                             if overlap(beg/sample_rate, 
@@ -485,10 +484,9 @@ class feedback:
                                 beg += instance_samples # Move window forward
                                 good = False
                                 break
-                                
                             else: # Nothing overlapped
                                 good = True
-                            
+                                
                     if good:
                         # We did it!
                         self.dataset['wavfile'].append(wav)
@@ -501,6 +499,31 @@ class feedback:
             
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
+        
+        # Mark silent instances of "feedback"
+        threshold = 100
+        delete = list()
+        for x in range(0, self.num_instances):
+            if self.dataset['fb'][x] == 1:
+                wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
+                beg = self.dataset["beginning"][x]
+                end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+                
+                instance = convertWav(wav_path,
+                                      crop_beg=beg,
+                                      crop_end=end,
+                                      convert=False)
+                volumes = abs(instance)
+                volume = sum(volumes)/len(volumes)
+                if volume < threshold: delete.append(x)
+        # Delete silent instances
+        for j in sorted(delete, reverse=True):
+            del self.dataset['wavfile'][j]
+            del self.dataset['beginning'][j]
+            del self.dataset['duration'][j]
+        
+        # New access stats
+        self.num_instances = len(self.dataset["wavfile"])
             
         ### Shuffle everything
         # Break out dataset dictionary into per-instance list for shuffling
@@ -516,8 +539,8 @@ class feedback:
         for key in self.dataset.keys():
             self.dataset[key] = temp.pop()
         
-    # Multithreaded return function. Return num instances
-    # If unprocessed is True, function returns raw wav data
+    # Return num instances
+    # If unprocessed is True, function returns raw audio data
     def returnInstance(self, num, unprocessed=False):
         
         ffts = None
@@ -546,7 +569,10 @@ class feedback:
                 data['fft'] = ffts
             else:
                 # Get raw audio
-                audios = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x], convert=False) \
+                audios = [convertWav(filenames[x],
+                                     crop_beg=beg[x],
+                                     crop_end=beg[x]+dur[x],
+                                     convert=False) \
                             for x in range(0, len(filenames))]
                 # include sample rates since it's important
                 sample_rates = [scipy.io.wavfile.read(input)[0] for input in filenames]
@@ -569,7 +595,7 @@ class feedback:
         
 def main():
     from PIL import Image
-    #import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     import wave
     import pyaudio
     '''
@@ -607,12 +633,12 @@ def main():
                     rate=feedbacks['sample_rate'][0],  
                     output=True)
                     
-    
+    # Play/show
     while feedbacks is not None:
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
             # Play audio
             if unprocessed:
-                if feedbacks['fb'][x] == 0:
+                if feedbacks['fb'][x] == 1:
               
                     # Write to temp wav file
                     scipy.io.wavfile.write('temp.wav', feedbacks['sample_rate'][x], feedbacks['audio'][x])
