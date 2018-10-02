@@ -74,9 +74,9 @@ def classifier(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
     
   # Mask non-feedback values if classifying for feedback
-  class_mask = None
-  if NUMCLASSES == 2:
-    class_mask = labels
+  #class_mask = None
+  #if NUMCLASSES == 2:
+  #  class_mask = labels
 
   # Add evaluation metrics (for EVAL mode)
   eval_metric_ops = {
@@ -86,11 +86,9 @@ def classifier(features, labels, mode, params):
           labels=labels, predictions=predictions["classes"],
           num_classes=NUMCLASSES),
       "recall": tf.metrics.recall(
-          labels=labels, predictions=predictions["classes"],
-          weights=class_mask),
+          labels=labels, predictions=predictions["classes"]),
       "precision": tf.metrics.precision(
-          labels=labels, predictions=predictions["classes"],
-          weights=class_mask)
+          labels=labels, predictions=predictions["classes"])
   }
 
   return tf.estimator.EstimatorSpec(
