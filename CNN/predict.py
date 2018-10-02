@@ -7,7 +7,7 @@ from multiprocessing import Process, Queue
 
 # Server data
 server = '192.168.12.3:8501' # Rest API port, grpc is 8500
-model_name = 'feedback'
+model_name = 'feedback56'
 signature_name = 'predict_class'
 url = "http://"+server+"/v1/models/"+model_name+":predict"
 
@@ -42,7 +42,7 @@ def wav_player(filename, queue):
     # Audio playback setup
     f = wave.open(filename,"rb")  
     #define stream chunk   
-    chunk = 1024
+    chunk = int(instance_size/20)
     #instantiate PyAudio  
     p = pyaudio.PyAudio()  
     #open stream  
@@ -58,7 +58,7 @@ def wav_player(filename, queue):
     while data:
         stream.write(data)
         # Indicate calculation
-        if frame*chunk > instance_size:
+        if frame*chunk == instance_size:
             queue.put(True)
             frame = 0
         
@@ -80,13 +80,15 @@ if __name__ == "__main__":
     import scipy.io.wavfile
     import pyaudio  
     import wave  
+    from PIL import Image
+    import matplotlib.pyplot as plt
     
     # Signal processing signal
-    input = "poetry_slam_ringout.wav"
+    input = "test_feedback.wav"
     sample_rate, signal = scipy.io.wavfile.read(input)
     
     # Get ffts
-    instance_size = int(sample_rate*1.15) # 1.15 seconds
+    instance_size = int(sample_rate*0.6) # 0.6 seconds
     ffts = [ap.convertWav(signal[0+x:x+instance_size], sample_rate=sample_rate) \
                 for x in range(0, len(signal), instance_size)]
     ffts.reverse()
@@ -101,15 +103,17 @@ if __name__ == "__main__":
     
     # Detect feedback
     while execute_queue.get() == True:
-        image = ap.plotSpectrumBW(ffts.pop())
-        image = np.asarray(image, dtype=np.float32)
-        image *= 1/255.0
+        fft = ap.plotSpectrumBW(ffts.pop())
+        fft = np.asarray(fft, dtype=np.float32)
+        fft *= 1/255.0
         
         # Turn into json request
-        json_request = create_json([image], signature_name)
+        json_request = create_json([fft], signature_name)
         
         # Get predictions
         output = requests.post(url, data=json_request)
         predictions = output.json()['predictions']
-        if predictions[0] == 1: print("Feedback!")
+        if predictions[0] == 1:
+            print("Feedback!")
+            plt.imshow(fft); plt.draw(); plt.pause(.001)
     
