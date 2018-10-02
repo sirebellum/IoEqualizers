@@ -452,10 +452,10 @@ class feedback:
                         self.dataset['fb'].append(0)
             # Done with adjacent feedback instancing
             
-            # Greedily sample non-quiet areas of wavs
+            # Greedily sample areas of wavs beneach volume threshold
             wavs = set(self.dataset['wavfile'])
-            add_instances = sum(self.dataset['fb'])*4 # num_feedbacks
-            threshold = 100 # Avg per sample
+            add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
+            threshold = 0 # Avg per sample
             
             # Per wav file
             for wav in wavs:
@@ -494,7 +494,8 @@ class feedback:
                         self.dataset['duration'].append(self.instance_size)
                         self.dataset['fb'].append(0)
                         added += 1
-                        beg += instance_samples*2 # Jump ahead      
+                        beg += instance_samples*2 # Jump ahead
+                
             # Done with non-silent sampling
             
             # New access stats
