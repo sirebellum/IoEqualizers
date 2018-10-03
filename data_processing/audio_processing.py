@@ -456,7 +456,7 @@ class feedback:
             wavs = set(self.dataset['wavfile'])
             add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
             added = 0
-            threshold = 200 # Avg per sample
+            threshold = 10 # Avg per sample
             
             # Per wav file
             for wav in wavs:
