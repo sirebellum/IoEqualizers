@@ -419,7 +419,7 @@ class feedback:
                     return True
                 else: return False
             
-            # Get up to 4 non-feedback instances adjacent to actual feedback
+            ### Get up to 4 non-feedback instances adjacent to actual feedback
             for x in range(0, self.num_instances):
                 nonfb_beg = list()
                 # Pull two instances from right before feedback and two from right after
@@ -452,10 +452,10 @@ class feedback:
                         self.dataset['fb'].append(0)
             # Done with adjacent feedback instancing
             
-            # Greedily sample areas of wavs beneach volume threshold
+            ### Greedily sample areas of wavs beneach volume threshold
             wavs = set(self.dataset['wavfile'])
             add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
-            threshold = 100 # Avg per sample
+            threshold = 200 # Avg per sample
             
             # Per wav file
             for wav in wavs:
@@ -503,34 +503,34 @@ class feedback:
                         self.dataset['duration'].append(self.instance_size)
                         self.dataset['fb'].append(0)
                         added += 1
-                        beg += instance_samples*2 # Jump ahead
-                
+                        beg += instance_samples # Jump ahead
             # Done with non-silent sampling
             
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
         
-        # Mark silent instances of "feedback"
-        threshold = 100
+        ### Mark silent instances of "feedback"
         delete = list()
+        threshold = 2500 # FFT amp threshold
         for x in range(0, self.num_instances):
             if self.dataset['fb'][x] == 1:
                 wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
                 beg = self.dataset["beginning"][x]
                 end = self.dataset["beginning"][x] + self.dataset["duration"][x]
                 
-                instance = convertWav(wav_path,
+                instance_fft = convertWav(wav_path,
                                       crop_beg=beg,
-                                      crop_end=end,
-                                      convert=False)
-                volumes = abs(instance)
-                volume = sum(volumes)/len(volumes)
+                                      crop_end=end)
+                fft_time_samples = len(instance_fft[0])
+                total_fft_volume = sum(sum(abs(instance_fft)))
+                volume = total_fft_volume/fft_time_samples
                 if volume < threshold: delete.append(x)
         # Delete silent instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
             del self.dataset['beginning'][j]
             del self.dataset['duration'][j]
+            del self.dataset['fb'][j]
         
         # New access stats
         self.num_instances = len(self.dataset["wavfile"])
@@ -653,8 +653,19 @@ def main():
                     # Write to temp wav file
                     scipy.io.wavfile.write('temp.wav', feedbacks['sample_rate'][x], feedbacks['audio'][x])
                     
-                    # Timestamp
-                    print(feedbacks['wav'][x], feedbacks['beg'][x])
+                    # Printouts per sample
+                    #print(feedbacks['wav'][x], feedbacks['beg'][x])
+                    time_amplitude = sum(abs(feedbacks['audio'][x]))/len(feedbacks['audio'][x])
+                    fft = convertWav(feedbacks['audio'][x],
+                                     sample_rate=feedbacks['sample_rate'][x])
+                                     
+                    if float("-inf") in fft or float("+inf") in fft:
+                        print("inf")
+                    else:
+                        fft_time_samples = len(fft[0])
+                        total_fft_volume = sum(sum(abs(fft)))
+                        print(int(total_fft_volume/fft_time_samples), # FFT Volume
+                              int(time_amplitude))                    # Time Volume
                     
                     f = wave.open('temp.wav',"rb")  
                     # Begin playback
