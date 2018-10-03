@@ -455,6 +455,7 @@ class feedback:
             ### Greedily sample areas of wavs beneach volume threshold
             wavs = set(self.dataset['wavfile'])
             add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
+            added = 0
             threshold = 200 # Avg per sample
             
             # Per wav file
@@ -463,7 +464,6 @@ class feedback:
                 samples = len(signal)
                 instance_samples = int(self.instance_size*sample_rate)
                 
-                added = 0
                 beg = 0 
                 while beg < samples-instance_samples \
                 and added < add_instances:
