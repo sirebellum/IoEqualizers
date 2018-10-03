@@ -455,7 +455,7 @@ class feedback:
             # Greedily sample areas of wavs beneach volume threshold
             wavs = set(self.dataset['wavfile'])
             add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
-            threshold = 0 # Avg per sample
+            threshold = 100 # Avg per sample
             
             # Per wav file
             for wav in wavs:
@@ -472,6 +472,15 @@ class feedback:
                     volumes = abs(signal[beg:beg+instance_samples])
                     volume = sum(volumes)/len(volumes)
                     if volume < threshold: # Check for volume
+                        ''' Check for volume of fft
+                        fft = convertWav(signal[beg:beg+instance_samples], sample_rate=sample_rate)
+                        if float("-inf") in fft or float("+inf") in fft:
+                            print("inf")
+                        else:
+                            fft_time_samples = len(fft[0])
+                            total_fft_volume = sum(sum(abs(fft)))
+                            print (int(total_fft_volume/fft_time_samples))
+                        '''
                         beg += instance_samples # Move window forward and try again
                         continue
                     else: # Check for overlap
