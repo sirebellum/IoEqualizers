@@ -513,18 +513,18 @@ class feedback:
         delete = list()
         threshold = 2500 # FFT amp threshold
         for x in range(0, self.num_instances):
-            #if self.dataset['fb'][x] == 1:
-            wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
-            beg = self.dataset["beginning"][x]
-            end = self.dataset["beginning"][x] + self.dataset["duration"][x]
-            
-            instance_fft = convertWav(wav_path,
-                                  crop_beg=beg,
-                                  crop_end=end)
-            fft_time_samples = len(instance_fft[0])
-            total_fft_volume = sum(sum(abs(instance_fft)))
-            volume = total_fft_volume/fft_time_samples
-            if volume < threshold: delete.append(x)
+            if self.dataset['fb'][x] == 1:
+                wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
+                beg = self.dataset["beginning"][x]
+                end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+                
+                instance_fft = convertWav(wav_path,
+                                      crop_beg=beg,
+                                      crop_end=end)
+                fft_time_samples = len(instance_fft[0])
+                total_fft_volume = sum(sum(abs(instance_fft)))
+                volume = total_fft_volume/fft_time_samples
+                if volume < threshold: delete.append(x)
         # Delete silent instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
