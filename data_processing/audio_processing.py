@@ -453,14 +453,31 @@ class feedback:
             # Done with adjacent feedback instancing
             
             ### Greedily sample areas of wavs beneach volume threshold
-            wavs = set(self.dataset['wavfile'])
+            wavs = list( set(self.dataset['wavfile']) )
+            wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
+            
+            ### Add spoken/sung word negative examples to wavs
+            wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
+            wavs += glob.glob(wav_wildcard, recursive=True)
+            wavs.reverse() # Get spoken word first
+            
             add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
             added = 0
             threshold = 10 # Avg per sample
             
             # Per wav file
             for wav in wavs:
-                sample_rate, signal = scipy.io.wavfile.read(os.path.join(self.wav_dir, wav))
+            
+                # Check for unsupported bit-depth
+                try:
+                    sample_rate, signal = scipy.io.wavfile.read(wav)
+                except ValueError:
+                    continue # Skip wav
+                
+                # Check for > 1 channel, average if so
+                if signal.ndim == 2:
+                    signal = np.array(signal[:, 0]/2 + signal[:, 1]/2, dtype=signal.dtype)
+                
                 samples = len(signal)
                 instance_samples = int(self.instance_size*sample_rate)
                 
@@ -503,7 +520,7 @@ class feedback:
                         self.dataset['duration'].append(self.instance_size)
                         self.dataset['fb'].append(0)
                         added += 1
-                        beg += instance_samples # Jump ahead
+                        beg += int(instance_samples*2.5) # Jump ahead
             # Done with non-silent sampling
             
             # New access stats
