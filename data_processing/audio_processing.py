@@ -466,7 +466,7 @@ class feedback:
                 added = 0
                 beg = 0 
                 while beg < samples-instance_samples \
-                and added < add_instances/len(wavs): # instances per wav
+                and added < add_instances:
                     
                     # Calculate avg volume per sample
                     volumes = abs(signal[beg:beg+instance_samples])
@@ -509,22 +509,22 @@ class feedback:
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
         
-        ### Mark silent instances of "feedback"
+        ### Mark silent instances
         delete = list()
         threshold = 2500 # FFT amp threshold
         for x in range(0, self.num_instances):
-            if self.dataset['fb'][x] == 1:
-                wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
-                beg = self.dataset["beginning"][x]
-                end = self.dataset["beginning"][x] + self.dataset["duration"][x]
-                
-                instance_fft = convertWav(wav_path,
-                                      crop_beg=beg,
-                                      crop_end=end)
-                fft_time_samples = len(instance_fft[0])
-                total_fft_volume = sum(sum(abs(instance_fft)))
-                volume = total_fft_volume/fft_time_samples
-                if volume < threshold: delete.append(x)
+            #if self.dataset['fb'][x] == 1:
+            wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
+            beg = self.dataset["beginning"][x]
+            end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+            
+            instance_fft = convertWav(wav_path,
+                                  crop_beg=beg,
+                                  crop_end=end)
+            fft_time_samples = len(instance_fft[0])
+            total_fft_volume = sum(sum(abs(instance_fft)))
+            volume = total_fft_volume/fft_time_samples
+            if volume < threshold: delete.append(x)
         # Delete silent instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
