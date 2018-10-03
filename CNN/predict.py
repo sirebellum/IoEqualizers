@@ -103,17 +103,27 @@ if __name__ == "__main__":
     
     # Detect feedback
     while execute_queue.get() == True:
-        fft = ap.plotSpectrumBW(ffts.pop())
-        fft = np.asarray(fft, dtype=np.float32)
-        fft *= 1/255.0
+        fft = ffts.pop()
+        
+        # Volume thresholding
+        threshold = 2500
+        fft_time_samples = len(fft[0])
+        total_fft_volume = sum(sum(abs(fft)))
+        fft_volume = total_fft_volume/fft_time_samples
+        if fft_volume < threshold:
+            continue # Don't even process
+        
+        image = ap.plotSpectrumBW(fft)
+        image = np.asarray(image, dtype=np.float32)
+        image *= 1/255.0
         
         # Turn into json request
-        json_request = create_json([fft], signature_name)
+        json_request = create_json([image], signature_name)
         
         # Get predictions
         output = requests.post(url, data=json_request)
         predictions = output.json()['predictions']
         if predictions[0] == 1:
             print("Feedback!")
-            plt.imshow(fft); plt.draw(); plt.pause(.001)
+            plt.imshow(image); plt.draw(); plt.pause(.001)
     
