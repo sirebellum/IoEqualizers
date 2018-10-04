@@ -460,7 +460,7 @@ class feedback:
             # Add spoken/sung word negative examples to wavs
             wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
             wavs += glob.glob(wav_wildcard, recursive=True)
-            wavs.reverse() # Get spoken word first
+            #wavs.reverse() # Get spoken word first
             
             # Gather wav files into one dictionary instead of re-reading
             self.wav_dict = {} # WAV Filename: sample_rate, audio
@@ -481,9 +481,9 @@ class feedback:
             
             
             # Per wav file
-            add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
+            add_instances = sum(self.dataset['fb'])*10 # num_feedbacks
             added = 0
-            threshold = 10 # Avg per sample
+            threshold = 100 # Avg per sample
             for wav in self.wav_dict:
                 sample_rate, signal = self.wav_dict[wav]
                 
