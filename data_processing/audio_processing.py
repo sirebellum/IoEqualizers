@@ -457,27 +457,35 @@ class feedback:
             wavs = list( set(self.dataset['wavfile']) )
             wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
             
-            ### Add spoken/sung word negative examples to wavs
+            # Add spoken/sung word negative examples to wavs
             wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
             wavs += glob.glob(wav_wildcard, recursive=True)
             wavs.reverse() # Get spoken word first
             
+            # Gather wav files into one dictionary instead of re-reading
+            self.wav_dict = {} # WAV Filename: sample_rate, audio
+            for filename in set(wavs):
+                # Check for unsupported bit-depth
+                try:
+                    self.wav_dict[filename] = list(scipy.io.wavfile.read(filename))
+                except ValueError:
+                    continue # Skip wav
+                    
+                # Check for > 1 channel, average if so
+                if self.wav_dict[filename][1].ndim == 2:
+                    dtype = self.wav_dict[filename][1].dtype
+                    average = \
+                        self.wav_dict[filename][1][:, 0]/2 + self.wav_dict[filename][1][:, 1]/2
+                    self.wav_dict[filename][1] = \
+                        np.array(average, dtype=dtype)
+            
+            
+            # Per wav file
             add_instances = sum(self.dataset['fb'])*5 # num_feedbacks
             added = 0
             threshold = 10 # Avg per sample
-            
-            # Per wav file
-            for wav in wavs:
-            
-                # Check for unsupported bit-depth
-                try:
-                    sample_rate, signal = scipy.io.wavfile.read(wav)
-                except ValueError:
-                    continue # Skip wav
-                
-                # Check for > 1 channel, average if so
-                if signal.ndim == 2:
-                    signal = np.array(signal[:, 0]/2 + signal[:, 1]/2, dtype=signal.dtype)
+            for wav in self.wav_dict:
+                sample_rate, signal = self.wav_dict[wav]
                 
                 samples = len(signal)
                 instance_samples = int(self.instance_size*sample_rate)
@@ -550,8 +558,10 @@ class feedback:
             del self.dataset['duration'][j]
             del self.dataset['fb'][j]
         
-        # New access stats
+        # Final access stats
         self.num_instances = len(self.dataset["wavfile"])
+        print( "{} instances of feedback, {} of non-feedback"\
+                    .format(sum(self.dataset['fb']), self.num_instances) )
             
         ### Shuffle everything
         # Break out dataset dictionary into per-instance list for shuffling
@@ -589,29 +599,27 @@ class feedback:
             # Storage dictionary
             data = {}
             
-            # WAV Filename: sample_rate, audio
-            wav_dict = {}
-            for filename in set(filenames):
-                wav_dict[filename] = scipy.io.wavfile.read(filename)
-            
             # Process feedback chunks
-            if not unprocessed:
-                ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
+            if not unprocessed: # Get ffts
+                sample_rates = [self.wav_dict[filename][0] for filename in filenames]
+                ffts = [convertWav(self.wav_dict[filenames[x]][1],
+                                   sample_rate=sample_rates[x],
+                                   crop_beg=beg[x],
+                                   crop_end=beg[x]+dur[x]) \
                             for x in range(0, len(filenames))]
-                            
                 data['fft'] = ffts
-            else:
-                # Get raw audio
-                audios = [convertWav(wav_dict[filenames[x]][1],
-                                 sample_rate=wav_dict[filenames[x]][0],
-                                 crop_beg=beg[x],
-                                 crop_end=beg[x]+dur[x],
-                                 convert=False) \
-                        for x in range(0, len(filenames))]
-                # include sample rates since it's important
-                sample_rates = [wav_dict[filename][0] for filename in filenames]
+            
+            else: # Get raw audio
+                sample_rates = [self.wav_dict[filename][0] for filename in filenames]
+                audios = [convertWav(self.wav_dict[filenames[x]][1],
+                                     sample_rate=sample_rates[x],
+                                     crop_beg=beg[x],
+                                     crop_end=beg[x]+dur[x],
+                                     convert=False) \
+                            for x in range(0, len(filenames))]
                 
                 data['audio'] = audios
+                # include sample rates since it's important
                 data['sample_rate'] = sample_rates
                 
                 if self.testing: # Return timestampds for data cleaning
@@ -631,8 +639,6 @@ class feedback:
 def main():
     from PIL import Image
     import matplotlib.pyplot as plt
-    import wave
-    import pyaudio
     '''
     # nsynth dataset
     dir = "nsynth/nsynth-test/"
@@ -651,22 +657,24 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = True # Return wav or not
+    unprocessed = False # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
+    
     if not unprocessed:
         ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
-    
-    # Set up audio output
-    #define stream chunk   
-    chunk = 1024
-    #instantiate PyAudio  
-    p = pyaudio.PyAudio()  
-    #open stream  
-    stream = p.open(format=pyaudio.paInt16,  
-                    channels=1,  
-                    rate=feedbacks['sample_rate'][0],  
-                    output=True)
+    else: # Set up audio output
+        import wave
+        import pyaudio
+        #define stream chunk   
+        chunk = 1024
+        #instantiate PyAudio  
+        p = pyaudio.PyAudio()  
+        #open stream  
+        stream = p.open(format=pyaudio.paInt16,  
+                        channels=1,  
+                        rate=feedbacks['sample_rate'][0],  
+                        output=True)
                     
     # Play/show
     while feedbacks is not None:
@@ -703,10 +711,12 @@ def main():
             else:
                 if feedbacks['fb'][x] == 1:
                     plt.imshow(ffts[x])
-                    plt.show()
+                    plt.draw(); plt.pause(0.25)
         
         # Get next batch
         feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
+        if not unprocessed:
+            ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
 
     #stop stream  
     stream.stop_stream()
