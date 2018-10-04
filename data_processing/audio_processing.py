@@ -82,7 +82,7 @@ def convertWav(input, \
                frame_size=0.025, \
                frame_stride=0.01, \
                crop_beg=0, \
-               crop_end=4, \
+               crop_end=None, \
                NFFT=256, \
                visualize=False, \
                convert=True):
@@ -97,7 +97,8 @@ def convertWav(input, \
     if sample_rate is None:
         sample_rate, signal = scipy.io.wavfile.read(input)
 
-        # Crop
+    # Crop
+    if crop_end is not None:
         duration = len(signal) / sample_rate
         beg = int(crop_beg * sample_rate) - int(sample_rate*0.01)
         if beg < 0: beg = 0 # Wouldn't want to wrap around the end
@@ -588,26 +589,34 @@ class feedback:
             # Storage dictionary
             data = {}
             
+            # WAV Filename: sample_rate, audio
+            wav_dict = {}
+            for filename in set(filenames):
+                wav_dict[filename] = scipy.io.wavfile.read(filename)
+            
             # Process feedback chunks
             if not unprocessed:
                 ffts = [convertWav(filenames[x], crop_beg=beg[x], crop_end=beg[x]+dur[x]) \
                             for x in range(0, len(filenames))]
+                            
                 data['fft'] = ffts
             else:
                 # Get raw audio
-                audios = [convertWav(filenames[x],
-                                     crop_beg=beg[x],
-                                     crop_end=beg[x]+dur[x],
-                                     convert=False) \
-                            for x in range(0, len(filenames))]
+                audios = [convertWav(wav_dict[filenames[x]][1],
+                                 sample_rate=wav_dict[filenames[x]][0],
+                                 crop_beg=beg[x],
+                                 crop_end=beg[x]+dur[x],
+                                 convert=False) \
+                        for x in range(0, len(filenames))]
                 # include sample rates since it's important
-                sample_rates = [scipy.io.wavfile.read(input)[0] for input in filenames]
+                sample_rates = [wav_dict[filename][0] for filename in filenames]
+                
                 data['audio'] = audios
                 data['sample_rate'] = sample_rates
                 
                 if self.testing: # Return timestampds for data cleaning
-                    data['wav'] = [filenames[x] for x in range(0, len(filenames))]
-                    data['beg'] = [beg[x] for x in range(0, len(filenames))]
+                    data['wav'] = filenames
+                    data['beg'] = beg
 
             # Increment
             self.num_accessed += num
