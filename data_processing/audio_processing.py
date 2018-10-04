@@ -365,7 +365,7 @@ class feedback:
             with open(file, mode='r') as labelfile:
                 for line in labelfile:
                     entry = line.strip("\n").split(",")
-                    self.dataset["wavfile"].append( entry[0] )
+                    self.dataset["wavfile"].append( os.path.join(self.wav_dir, entry[0]) )
                     self.dataset["beginning"].append( float(entry[1]) )
                     self.dataset["duration"].append( float(entry[2]) )
                 
@@ -577,7 +577,6 @@ class feedback:
 
             # Get relevant filenames and prepend full path
             filenames = self.dataset['wavfile'][self.num_accessed:upper]
-            filenames = [ os.path.join(self.wav_dir, file) for file in filenames ]
             # Get relevant chunks
             beg = self.dataset['beginning'][self.num_accessed:upper]
             dur = self.dataset['duration'][self.num_accessed:upper]
