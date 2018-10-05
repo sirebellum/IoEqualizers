@@ -460,7 +460,10 @@ class feedback:
             # Add spoken/sung word negative examples to wavs
             wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
             wavs += glob.glob(wav_wildcard, recursive=True)
-            #wavs.reverse() # Get spoken word first
+            
+            # Add spoken digits
+            wav_wildcard = self.wav_dir+"/FSDD/*.wav"
+            wavs += glob.glob(wav_wildcard)
             
             # Gather wav files into one dictionary instead of re-reading
             self.wav_dict = {} # WAV Filename: sample_rate, audio
@@ -481,7 +484,7 @@ class feedback:
             
             
             # Per wav file
-            add_instances = sum(self.dataset['fb'])*10 # num_feedbacks
+            add_instances = sum(self.dataset['fb'])*50 # num_feedbacks
             added = 0
             threshold = 100 # Avg per sample
             for wav in self.wav_dict:
@@ -557,6 +560,23 @@ class feedback:
             del self.dataset['beginning'][j]
             del self.dataset['duration'][j]
             del self.dataset['fb'][j]
+            
+        # New access stats
+        self.num_instances = len(self.dataset["wavfile"])
+                    
+        ### Create jittered duplicates of feedback
+        for x in range(0, self.num_instances):
+            if self.dataset['fb'][x] == 1:
+                    right_jitter = self.dataset['beginning'][x]+0.25*self.instance_size
+                    self.dataset['wavfile'].append(self.dataset['wavfile'][x])
+                    self.dataset['beginning'].append(right_jitter)
+                    self.dataset['duration'].append(self.instance_size)
+                    self.dataset['fb'].append(1)
+                    left_jitter = self.dataset['beginning'][x]-0.25*self.instance_size
+                    self.dataset['wavfile'].append(self.dataset['wavfile'][x])
+                    self.dataset['beginning'].append(left_jitter)
+                    self.dataset['duration'].append(self.instance_size)
+                    self.dataset['fb'].append(1)
         
         # Final access stats
         self.num_instances = len(self.dataset["wavfile"])
@@ -709,7 +729,7 @@ def main():
             
             # Display FFTs
             else:
-                if feedbacks['fb'][x] == 1:
+                if feedbacks['fb'][x] == 0:
                     plt.imshow(ffts[x])
                     plt.draw(); plt.pause(0.25)
         
