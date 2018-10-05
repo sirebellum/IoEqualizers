@@ -458,8 +458,8 @@ class feedback:
             wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
             
             # Add spoken/sung songs
-            wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
-            wavs += glob.glob(wav_wildcard, recursive=True)
+            #wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
+            #wavs += glob.glob(wav_wildcard, recursive=True)
             
             # Add spoken digits 
             wav_wildcard = self.wav_dir+"/FSDD/*.wav"
@@ -680,7 +680,7 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = False # Return wav or not
+    unprocessed = True # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     
@@ -694,9 +694,10 @@ def main():
         #instantiate PyAudio  
         p = pyaudio.PyAudio()  
         #open stream  
+        ref_sample = feedbacks['sample_rate'][0]
         stream = p.open(format=pyaudio.paInt16,  
                         channels=1,  
-                        rate=feedbacks['sample_rate'][0],  
+                        rate=ref_sample,  
                         output=True)
                     
     # Play/show
@@ -704,16 +705,26 @@ def main():
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
             # Play audio
             if unprocessed:
-                if feedbacks['fb'][x] == 1:
+                if feedbacks['fb'][x] == 0:
               
+                    if feedbacks['sample_rate'][x] != ref_sample:
+                        # Convert fb sample rate to match instances's
+                        instance = audioop.ratecv(
+                            feedbacks['audio'][x],          # input
+                            feedbacks['audio'][x].itemsize, # bit depth (bytes)
+                            1, feedbacks['sample_rate'][x],       # channels, inrate
+                            ref_sample,             # outrate
+                            None)                 # state..?
+                        instance = list(np.frombuffer(instance[0], dtype=np.int16))
+                        
                     # Write to temp wav file
-                    scipy.io.wavfile.write('temp.wav', feedbacks['sample_rate'][x], feedbacks['audio'][x])
+                    scipy.io.wavfile.write('temp.wav', ref_sample, instance)
                     
                     # Printouts per sample
                     #print(feedbacks['wav'][x], feedbacks['beg'][x])
-                    time_amplitude = sum(abs(feedbacks['audio'][x]))/len(feedbacks['audio'][x])
-                    fft = convertWav(feedbacks['audio'][x],
-                                     sample_rate=feedbacks['sample_rate'][x])
+                    time_amplitude = sum(abs(instance))/len(instance)
+                    fft = convertWav(instance,
+                                     sample_rate=ref_sample)
                                      
                     if float("-inf") in fft or float("+inf") in fft:
                         print("inf")
