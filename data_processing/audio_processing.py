@@ -347,6 +347,63 @@ def insert_feedback(input):
     return [sample, ref_rate]
 
 
+# Returns slices of audio sample of size seconds
+# Ensures no overlap with provided labels
+# Ensures threshold for volume
+def slice_audio(input):
+
+    # Break out input list
+    sample_rate, signal, size, threshold, labels, wav = input
+    
+    samples = len(signal)
+    instance_samples = int(size*sample_rate) # Convert seconds to samples
+    
+    beg = 0
+    instances = list()
+    good = True
+    while beg < samples-instance_samples:
+        
+        # Calculate avg volume per sample
+        volumes = abs(signal[beg:beg+instance_samples])
+        volume = sum(volumes)/len(volumes)
+        if volume < threshold: # Check for volume
+            ''' Check for volume of fft
+            fft = convertWav(signal[beg:beg+instance_samples], sample_rate=sample_rate)
+            if float("-inf") in fft or float("+inf") in fft:
+                print("inf")
+            else:
+                fft_time_samples = len(fft[0])
+                total_fft_volume = sum(sum(abs(fft)))
+                print (int(total_fft_volume/fft_time_samples))
+            '''
+            beg += instance_samples # Move window forward and try again
+            continue
+        else: # Check for overlap
+            for label in labels:
+                if overlap(beg/sample_rate, size, label[0], label[1]):
+                    beg += instance_samples # Move window forward
+                    good = False
+                    break
+                else: # Nothing overlapped
+                    good = True
+                    
+        if good:
+            # We did it!
+            instances.append([beg/sample_rate, size, wav])
+            beg += instance_samples # Jump ahead
+            
+    return instances
+
+# Function for checking overlap between two samples
+def overlap(beg1, dur1, beg2, dur2):
+    end1 = beg1 + dur1
+    end2 = beg2 + dur2
+    
+    if beg1 <= end2 and end1 >= beg2:
+        return True
+    else: return False
+
+
 # Class to pull feedback instances from multiple annotation files
 class feedback:
     # annotations is a list of csv files that label feedback files
@@ -410,15 +467,6 @@ class feedback:
             self.dataset['fb'] = []
             for x in range(0, self.num_instances):
                 self.dataset['fb'].append(1)
-        
-            # Function for checking overlap between two samples
-            def overlap(beg1, dur1, beg2, dur2):
-                end1 = beg1 + dur1
-                end2 = beg2 + dur2
-                
-                if beg1 <= end2 and end1 >= beg2:
-                    return True
-                else: return False
             
             ### Get up to 4 non-feedback instances adjacent to actual feedback
             for x in range(0, self.num_instances):
@@ -458,8 +506,8 @@ class feedback:
             wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
             
             # Add spoken/sung songs
-            #wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
-            #wavs += glob.glob(wav_wildcard, recursive=True)
+            wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
+            wavs += glob.glob(wav_wildcard, recursive=True)
             
             # Add spoken digits 
             wav_wildcard = self.wav_dir+"/FSDD/*.wav"
@@ -484,58 +532,43 @@ class feedback:
             
             ### Greedily sample areas of wavs beneach volume threshold
             add_instances = sum(self.dataset['fb'])*50 # num_feedbacks
-            added = 0
             threshold = 100 # Avg per sample
             
-            ### TODO: Process each wav in concurrently (multiprocessing.pool)
-            ###      - Shuffle resulting data and select add_instances
-            ### TODO: Create "add_instance" function to get rid of all the effin' append/del
+            # Get inputs for each wavs (multiprocessing)
+            inputs = list()
             for wav in self.wav_dict:
                 sample_rate, signal = self.wav_dict[wav]
                 
-                samples = len(signal)
-                instance_samples = int(self.instance_size*sample_rate)
+                # Get overlap lables
+                labels = list()
+                for x in range(0, self.num_instances):
+                    if self.dataset['wavfile'][x] == wav:
+                        labels.append( [self.dataset['beginning'][x], \
+                                        self.dataset['duration'][x]] )
                 
-                beg = 0 
-                while beg < samples-instance_samples \
-                and added < add_instances:
-                    
-                    # Calculate avg volume per sample
-                    volumes = abs(signal[beg:beg+instance_samples])
-                    volume = sum(volumes)/len(volumes)
-                    if volume < threshold: # Check for volume
-                        ''' Check for volume of fft
-                        fft = convertWav(signal[beg:beg+instance_samples], sample_rate=sample_rate)
-                        if float("-inf") in fft or float("+inf") in fft:
-                            print("inf")
-                        else:
-                            fft_time_samples = len(fft[0])
-                            total_fft_volume = sum(sum(abs(fft)))
-                            print (int(total_fft_volume/fft_time_samples))
-                        '''
-                        beg += instance_samples # Move window forward and try again
-                        continue
-                    else: # Check for overlap
-                        for x in range(0, len(self.dataset['beginning'])): 
-                            if overlap(beg/sample_rate, 
-                                       self.instance_size,
-                                       self.dataset['beginning'][x],
-                                       self.dataset['duration'][x]) \
-                            and wav == self.dataset['wavfile'][x]:
-                                beg += instance_samples # Move window forward
-                                good = False
-                                break
-                            else: # Nothing overlapped
-                                good = True
-                                
-                    if good:
-                        # We did it!
-                        self.dataset['wavfile'].append(wav)
-                        self.dataset['beginning'].append(beg/sample_rate)
-                        self.dataset['duration'].append(self.instance_size)
-                        self.dataset['fb'].append(0)
-                        added += 1
-                        beg += int(instance_samples*2.5) # Jump ahead
+                # listify for function input
+                input = [sample_rate, signal, self.instance_size, threshold, labels, wav]
+                inputs.append(input)
+            
+            # Get instances from all wavs via multiprocessing
+            pool = Pool(processes=4)
+            instances_unformatted = pool.map(slice_audio, inputs)
+            instances = list() # 
+            for instance in instances_unformatted:
+                instances += instance
+            pool.close()
+            pool.join()
+            
+            # Shuffle and choose instances
+            random.shuffle(instances)
+            instances = instances[0:add_instances]
+            
+            # Append instances to dataset
+            for instance in instances:
+                self.dataset['wavfile'].append(instance[2])
+                self.dataset['beginning'].append(instance[0])
+                self.dataset['duration'].append(instance[1])
+                self.dataset['fb'].append(0)
             # Done with non-silent sampling
             
             # New access stats
@@ -707,6 +740,7 @@ def main():
             if unprocessed:
                 if feedbacks['fb'][x] == 0:
               
+                    instance = feedbacks['audio'][x]
                     if feedbacks['sample_rate'][x] != ref_sample:
                         # Convert fb sample rate to match instances's
                         instance = audioop.ratecv(
@@ -715,7 +749,7 @@ def main():
                             1, feedbacks['sample_rate'][x],       # channels, inrate
                             ref_sample,             # outrate
                             None)                 # state..?
-                        instance = list(np.frombuffer(instance[0], dtype=np.int16))
+                        instance = np.frombuffer(instance[0], dtype=np.int16)
                         
                     # Write to temp wav file
                     scipy.io.wavfile.write('temp.wav', ref_sample, instance)
