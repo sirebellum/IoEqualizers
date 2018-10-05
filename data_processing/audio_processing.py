@@ -453,15 +453,15 @@ class feedback:
                         self.dataset['fb'].append(0)
             # Done with adjacent feedback instancing
             
-            ### Greedily sample areas of wavs beneach volume threshold
+            ### Gather non-feedback wav files
             wavs = list( set(self.dataset['wavfile']) )
             wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
             
-            # Add spoken/sung word negative examples to wavs
+            # Add spoken/sung songs
             wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
             wavs += glob.glob(wav_wildcard, recursive=True)
             
-            # Add spoken digits
+            # Add spoken digits 
             wav_wildcard = self.wav_dir+"/FSDD/*.wav"
             wavs += glob.glob(wav_wildcard)
             
@@ -474,7 +474,7 @@ class feedback:
                 except ValueError:
                     continue # Skip wav
                     
-                # Check for > 1 channel, average if so
+                # Average to 1 channel
                 if self.wav_dict[filename][1].ndim == 2:
                     dtype = self.wav_dict[filename][1].dtype
                     average = \
@@ -482,11 +482,14 @@ class feedback:
                     self.wav_dict[filename][1] = \
                         np.array(average, dtype=dtype)
             
-            
-            # Per wav file
+            ### Greedily sample areas of wavs beneach volume threshold
             add_instances = sum(self.dataset['fb'])*50 # num_feedbacks
             added = 0
             threshold = 100 # Avg per sample
+            
+            ### TODO: Process each wav in concurrently (multiprocessing.pool)
+            ###      - Shuffle resulting data and select add_instances
+            ### TODO: Create "add_instance" function to get rid of all the effin' append/del
             for wav in self.wav_dict:
                 sample_rate, signal = self.wav_dict[wav]
                 
