@@ -467,7 +467,7 @@ class feedback:
             self.dataset['fb'] = []
             for x in range(0, self.num_instances):
                 self.dataset['fb'].append(1)
-            
+            '''
             ### Get up to 4 non-feedback instances adjacent to actual feedback
             for x in range(0, self.num_instances):
                 nonfb_beg = list()
@@ -500,10 +500,10 @@ class feedback:
                         self.dataset['duration'].append(self.instance_size)
                         self.dataset['fb'].append(0)
             # Done with adjacent feedback instancing
-            
+            '''
             ### Gather non-feedback wav files
             wavs = list( set(self.dataset['wavfile']) )
-            wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
+            #wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
             
             # Add spoken/sung songs
             wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
@@ -530,16 +530,17 @@ class feedback:
                     self.wav_dict[filename][1] = \
                         np.array(average, dtype=dtype)
             
-            ### Greedily sample areas of wavs beneach volume threshold
+            
+            ### Greedily sample areas of wavs above volume threshold
             add_instances = sum(self.dataset['fb'])*50 # num_feedbacks
             threshold = 100 # Avg per sample
             
-            # Get inputs for each wavs (multiprocessing)
+            # Get inputs for each wav (multiprocessing)
             inputs = list()
             for wav in self.wav_dict:
                 sample_rate, signal = self.wav_dict[wav]
                 
-                # Get overlap lables
+                # Get overlap labels
                 labels = list()
                 for x in range(0, self.num_instances):
                     if self.dataset['wavfile'][x] == wav:
@@ -574,6 +575,7 @@ class feedback:
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
         
+        
         ### Mark silent instances
         delete = list()
         threshold = 2500 # FFT amp threshold
@@ -583,13 +585,15 @@ class feedback:
                 beg = self.dataset["beginning"][x]
                 end = self.dataset["beginning"][x] + self.dataset["duration"][x]
                 
-                instance_fft = convertWav(wav_path,
-                                      crop_beg=beg,
-                                      crop_end=end)
+                instance_fft = convertWav(self.wav_dict[wav_path][1],
+                                          sample_rate=self.wav_dict[wav_path][0],
+                                          crop_beg=beg,
+                                          crop_end=end)
                 fft_time_samples = len(instance_fft[0])
                 total_fft_volume = sum(sum(abs(instance_fft)))
                 volume = total_fft_volume/fft_time_samples
                 if volume < threshold: delete.append(x)
+                elif volume == float("inf"): delete.append(x)
         # Delete silent instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
@@ -599,6 +603,7 @@ class feedback:
             
         # New access stats
         self.num_instances = len(self.dataset["wavfile"])
+                    
                     
         ### Create jittered duplicates of feedback
         for x in range(0, self.num_instances):
@@ -618,7 +623,8 @@ class feedback:
         self.num_instances = len(self.dataset["wavfile"])
         print( "{} instances of feedback, {} of non-feedback"\
                     .format(sum(self.dataset['fb']), self.num_instances) )
-            
+        
+        
         ### Shuffle everything
         # Break out dataset dictionary into per-instance list for shuffling
         temp = list()
@@ -779,7 +785,7 @@ def main():
             else:
                 if feedbacks['fb'][x] == 0:
                     plt.imshow(ffts[x])
-                    plt.draw(); plt.pause(0.25)
+                    plt.draw(); plt.pause(0.001)
         
         # Get next batch
         feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)

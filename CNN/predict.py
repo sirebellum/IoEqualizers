@@ -110,7 +110,7 @@ if __name__ == "__main__":
         fft_time_samples = len(fft[0])
         total_fft_volume = sum(sum(abs(fft)))
         fft_volume = total_fft_volume/fft_time_samples
-        if fft_volume < threshold:
+        if fft_volume < threshold or fft_volume == float('inf'):
             continue # Don't even process
         
         image = ap.plotSpectrumBW(fft)
