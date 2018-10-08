@@ -122,7 +122,12 @@ if __name__ == "__main__":
         
         # Get predictions
         output = requests.post(url, data=json_request)
-        predictions = output.json()['predictions']
+        try:
+            predictions = output.json()['predictions']
+        except KeyError:
+            print( output.json() )
+            exit()
+            
         if predictions[0] == 1:
             print("Feedback!")
             plt.imshow(image); plt.draw(); plt.pause(.001)
