@@ -1,3 +1,7 @@
+# Add top level of git to path
+import sys
+sys.path.append("../")
+
 from __future__ import print_function
 import numpy as np
 import json
@@ -37,12 +41,12 @@ def create_json(images, signature_name):
 # Function ment to play wav in other thread, outputing whenever a certain
 #   number of frames are processed
 def wav_player(filename, queue):
-    global instance_size # Instance size
+    global instance_samples # Instance size
 
     # Audio playback setup
     f = wave.open(filename,"rb")  
     #define stream chunk   
-    chunk = int(instance_size/20)
+    chunk = int(instance_samples/20)
     #instantiate PyAudio  
     p = pyaudio.PyAudio()  
     #open stream  
@@ -58,7 +62,7 @@ def wav_player(filename, queue):
     while data:
         stream.write(data)
         # Indicate calculation
-        if frame*chunk == instance_size:
+        if frame*chunk == instance_samples:
             queue.put(True)
             frame = 0
         
@@ -88,9 +92,9 @@ if __name__ == "__main__":
     sample_rate, signal = scipy.io.wavfile.read(input)
     
     # Get ffts
-    instance_size = int(sample_rate*0.6) # 0.6 seconds
-    ffts = [ap.convertWav(signal[0+x:x+instance_size], sample_rate=sample_rate) \
-                for x in range(0, len(signal), instance_size)]
+    instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
+    ffts = [ap.convertWav(signal[0+x:x+instance_samples], sample_rate=sample_rate) \
+                for x in range(0, len(signal), instance_samples)]
     ffts.reverse()
     
     # Launch wav reader with indicator queue

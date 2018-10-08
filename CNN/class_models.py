@@ -1,9 +1,12 @@
 import tensorflow as tf
 from autoencoders import conv
 extract = conv.encode
-HEIGHT = 112
-WIDTH = 56
 BETA = 0.001 # L2 Beta
+
+# Get image size data based on processing
+from data_processing import audio_processing as ap
+HEIGHT = ap.HEIGHT
+WIDTH = ap.WIDTH
 
 def classifier(features, labels, mode, params):
 

@@ -1,10 +1,17 @@
+# Add top level of git to path
+import sys
+sys.path.append("../../")
+
 import tensorflow as tf
 import math
-HEIGHT = 112
-WIDTH = 56
 NOIS_MEAN = 0.0
 NOISE_STD = 0.2
 BETA = 0.001
+
+# Get image size data based on processing
+from data_processing import audio_processing as ap
+HEIGHT = ap.HEIGHT
+WIDTH = ap.WIDTH
 
 def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 

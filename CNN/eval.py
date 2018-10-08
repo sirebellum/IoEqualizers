@@ -1,3 +1,7 @@
+# Add top level of git to path
+import sys
+sys.path.append("../")
+
 # Imports
 import numpy as np
 import os
@@ -42,8 +46,8 @@ file_watch.add_watch(model_dir)
 def tfrecord_input():
 
     # Keep list of filenames, so you can input directory of tfrecords easily
-    train_filenames = glob.glob("data_processing/tfrecords/*tfrecords")
-    valid_filenames = glob.glob("data_processing/tfrecords/val*tfrecords")
+    train_filenames = glob.glob("../data_processing/tfrecords/*tfrecords")
+    valid_filenames = glob.glob("../data_processing/tfrecords/val*tfrecords")
     batch_size=256
 
     # Import data

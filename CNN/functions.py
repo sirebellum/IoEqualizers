@@ -1,7 +1,13 @@
+# Add top level of git to path
+import sys
+sys.path.append("../")
+
 import tensorflow as tf
 import numpy as np
-HEIGHT = 112
-WIDTH = 56
+
+from data_processing import audio_processing as ap
+HEIGHT = ap.HEIGHT
+WIDTH = ap.WIDTH
       
 def parse_record(serialized_example): #parse a single binary example
   """Parses a single tf.Example into image and label tensors."""
