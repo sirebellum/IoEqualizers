@@ -59,52 +59,52 @@ def conv_instrument(features, kernels, biases):
 
     # Capture largest frequency dependent features
     conv_freq1 = tf.layers.Conv2D(
-        8, (2, HEIGHT/2), strides=(2, HEIGHT/4),
+        8, (HEIGHT/2, 2), strides=(HEIGHT/4, 2),
         activation='relu', padding='same', name='conv1-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     # Capture large frequency dependent features
     conv_freq2 = tf.layers.Conv2D(
-        8, (2, HEIGHT/4), strides=(2, HEIGHT/8),
+        8, (HEIGHT/4, 2), strides=(HEIGHT/8, 2),
         activation='relu', padding='same', name='conv2-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     # Capture small frequency dependent features
     conv_freq3 = tf.layers.Conv2D(
-        8, (2, HEIGHT/8), strides=(2, HEIGHT/16),
+        8, (HEIGHT/8, 2), strides=(HEIGHT/16, 2),
         activation='relu', padding='same', name='conv3-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     # Capture smallest frequency dependent features
     conv_freq4 = tf.layers.Conv2D(
-        8, (2, HEIGHT/16), strides=(2, HEIGHT/32),
+        8, (HEIGHT/16, 2), strides=(HEIGHT/32, 2),
         activation='relu', padding='same', name='conv4-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     
     # Pool out time scales
-    pool_freq1 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 1), padding='same', name='pool5-')(conv_freq1)
-    pool_freq2 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 1), padding='same', name='pool6-')(conv_freq2)
-    pool_freq3 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 1), padding='same', name='pool7-')(conv_freq3)
-    pool_freq4 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 1), padding='same', name='pool8-')(conv_freq4)
+    pool_freq1 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool5-')(conv_freq1)
+    pool_freq2 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool6-')(conv_freq2)
+    pool_freq3 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool7-')(conv_freq3)
+    pool_freq4 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool8-')(conv_freq4)
     
     # Pad smaller feature maps
-    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [0, 0], [8, 9], [0, 0]]))
-    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [0, 0], [7, 8], [0, 0]]))
-    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [0, 0], [5, 6], [0, 0]]))
+    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [17, 17], [0, 0], [0, 0]]))
+    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [15, 15], [0, 0], [0, 0]]))
+    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [11, 11], [0, 0], [0, 0]]))
     
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 3)
     
     # Deepen
     conv1 = tf.layers.Conv2D(
-        16, (3, 3),activation='relu',
+        8, (3, 3),activation='relu',
         padding='valid',name='conv9-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(freq_map)
     conv2 = tf.layers.Conv2D(
-        16, (3, 3),activation='relu',
+        8, (3, 3),activation='relu',
         padding='valid',name='conv10-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
