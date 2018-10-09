@@ -404,7 +404,22 @@ def overlap(beg1, dur1, beg2, dur2):
         return True
     else: return False
 
+# Display histogram
+def histogram(x, name, nbins=10):
+    import matplotlib.pyplot as plt
+    # the histogram of the data
+    n, bins, patches = plt.hist(x, bins=nbins)
 
+    plt.xlabel(name)
+    plt.ylabel('Frequency')
+    plt.grid(True)
+    
+    # Log y scale
+    plt.yscale('log', nonposy='clip')
+    
+    plt.show()
+    import ipdb;ipdb.set_trace()
+    
 # Class to pull feedback instances from multiple annotation files
 class feedback:
     # annotations is a list of csv files that label feedback files
@@ -576,6 +591,25 @@ class feedback:
             # New access stats
             self.num_instances = len(self.dataset["wavfile"])
         
+        ### Plot histogram of feedback magnitudes if testing
+        if self.testing == True:
+            volumes = list()
+            for x in range(0, self.num_instances):
+                if self.dataset['fb'][x] == 1:
+                    wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
+                    beg = self.dataset["beginning"][x]
+                    end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+                    
+                    instance_fft = convertWav(self.wav_dict[wav_path][1],
+                                              sample_rate=self.wav_dict[wav_path][0],
+                                              crop_beg=beg,
+                                              crop_end=end)
+                    fft_time_samples = len(instance_fft[0])
+                    total_fft_volume = sum(sum(abs(instance_fft)))
+                    volume = total_fft_volume/fft_time_samples
+                    if volume == float("inf"): volume = -1
+                    volumes.append( volume )
+            histogram(volumes, "volumes", nbins=20)
         
         ### Mark silent instances
         delete = list()
