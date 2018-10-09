@@ -74,7 +74,7 @@ def classifier(features, labels, mode, params):
   loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
   
   # L2 Regularization for logits
-  loss = tf.reduce_mean(loss + tf.losses.get_regularization_loss())
+  loss += tf.reduce_mean(tf.losses.get_regularization_losses())
   
   # Configure the Training Op (for TRAIN mode)
   if mode == tf.estimator.ModeKeys.TRAIN:
