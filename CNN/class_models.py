@@ -54,11 +54,19 @@ def classifier(features, labels, mode, params):
       "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
   }
 
+  # Create feature map images
+  fm_images = tf.reshape(feature_map, [-1, 28, 28, 1])
+  
   # Put images in tensorboard
   if mode == tf.estimator.ModeKeys.TRAIN:
       tf.summary.image(
         "Image",
         input_layer,
+        max_outputs=9
+      )
+      tf.summary.image(
+        "feature_map",
+        fm_images,
         max_outputs=9
       )
 

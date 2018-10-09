@@ -89,9 +89,9 @@ def conv_instrument(features, kernels, biases):
     pool_freq4 = tf.layers.MaxPooling2D((WIDTH/8, 2), (WIDTH/16, 1), padding='same', name='pool8-')(conv_freq4)
     
     # Pad smaller feature maps
-    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [0, 0,], [8, 9], [0, 0]]))
-    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [0, 0,], [7, 8], [0, 0]]))
-    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [0, 0,], [5, 6], [0, 0]]))
+    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [0, 0], [8, 9], [0, 0]]))
+    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [0, 0], [7, 8], [0, 0]]))
+    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [0, 0], [5, 6], [0, 0]]))
     
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 3)
@@ -99,18 +99,18 @@ def conv_instrument(features, kernels, biases):
     # Deepen
     conv1 = tf.layers.Conv2D(
         16, (3, 3),activation='relu',
-        padding='same',name='conv9-',
+        padding='valid',name='conv9-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(freq_map)
     conv2 = tf.layers.Conv2D(
         16, (3, 3),activation='relu',
-        padding='same',name='conv10-',
+        padding='valid',name='conv10-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(conv1)
         
-    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='same', name='feature_map-')(conv2)
+    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv2)
     feature_map = pool1
     
     # If valid weights were loaded
