@@ -64,11 +64,6 @@ def classifier(features, labels, mode, params):
         input_layer,
         max_outputs=9
       )
-      tf.summary.image(
-        "feature_map",
-        fm_images,
-        max_outputs=9
-      )
 
   # Calculate Loss (for both TRAIN and EVAL modes)
   loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)

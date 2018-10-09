@@ -96,6 +96,15 @@ def conv_instrument(features, kernels, biases):
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 3)
     
+    # Post image of feedback map
+    feedback_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 2)
+    feedback_map = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
+    tf.summary.image(
+        "feedback_map",
+        feedback_map,
+        max_outputs=9
+      )
+    
     # Deepen
     conv1 = tf.layers.Conv2D(
         8, (3, 3),activation='relu',
