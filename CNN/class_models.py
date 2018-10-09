@@ -55,7 +55,7 @@ def classifier(features, labels, mode, params):
   }
 
   # Create feature map images
-  fm_images = tf.reshape(feature_map, [-1, 28, 28, 1])
+  fm_images = tf.reshape(feature_map, [-1, height*depth, width, 1])
   
   # Put images in tensorboard
   if mode == tf.estimator.ModeKeys.TRAIN:
