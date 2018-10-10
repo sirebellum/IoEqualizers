@@ -2,7 +2,6 @@
 import sys
 sys.path.append("../")
 
-from __future__ import print_function
 import numpy as np
 import json
 import requests
@@ -136,7 +135,7 @@ if __name__ == "__main__":
             print("Feedback!")
             # Draw box
             image = np.pad(image, 2, mode='constant', constant_values=(1, 1))
-            plt.imshow(image); plt.draw(); plt.pause(.1)
+            plt.imshow(image); plt.draw(); plt.pause(.001)
         else:
             plt.imshow(image); plt.draw(); plt.pause(.001)
     
