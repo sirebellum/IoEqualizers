@@ -5,7 +5,7 @@ then
     exit
 fi
 
-docker run --runtime=nvidia -p 8500:8500 -p 8501:8501 \
+docker run -t -i --runtime=nvidia -p 8500:8500 -p 8501:8501 \
 --mount type=bind,\
 source=$(pwd)/deploy/$model,\
 target=/models/$model \
