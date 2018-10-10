@@ -9,19 +9,20 @@ from autoencoders import conv, vanilla
 # which model to use
 feature_extractor = conv.conv_instrument
 
-slim = tf.contrib.slim
 import os
-import json
 
-tf.app.flags.DEFINE_integer('model_version', 1, 'Models version number.')
-tf.app.flags.DEFINE_string('work_dir', './models', 'Working directory.')
-tf.app.flags.DEFINE_string('model_id', "feedback", 'Model id name to be loaded.')
-tf.app.flags.DEFINE_string('export_model_dir', "./deploy", 'Directory where the model exported files should be placed.')
+#Argument parsing
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("model_id", help='Model id name to be loaded.')
+parser.add_argument("output_id", help='Model id name to be saved as.')
+parser.add_argument("--model_version", default=1, help='Models version number.')
+parser.add_argument("--work_dir", default='./models', help='Working directory.')
+parser.add_argument("--export_model_dir", default='./deploy', help='Directory where the model exported files should be placed.')
+args = parser.parse_args()
 
-FLAGS = tf.app.flags.FLAGS
-
-model_name = str(FLAGS.model_id)
-log_folder = FLAGS.work_dir
+model_name = str(args.model_id)
+log_folder = args.work_dir
 
 def main(_):
 
@@ -63,11 +64,11 @@ def main(_):
 
         # Create SavedModelBuilder class
         # defines where the model will be exported
-        export_path_base = FLAGS.export_model_dir
+        export_path_base = args.export_model_dir
         export_path = os.path.join(
             tf.compat.as_bytes(export_path_base),
-            tf.compat.as_bytes(model_name),
-            tf.compat.as_bytes(str(FLAGS.model_version)))
+            tf.compat.as_bytes(args.output_id),
+            tf.compat.as_bytes(str(args.model_version)))
         print('Exporting trained model to', export_path)
         builder = tf.saved_model.builder.SavedModelBuilder(export_path)
 
