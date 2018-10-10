@@ -87,7 +87,7 @@ def conv_instrument(features, kernels, biases):
     pool_freq2 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool6-')(conv_freq2)
     pool_freq3 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool7-')(conv_freq3)
     pool_freq4 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool8-')(conv_freq4)
-    
+    '''
     # Pad smaller feature maps
     pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [17, 17], [0, 0], [0, 0]]))
     pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [15, 15], [0, 0], [0, 0]]))
@@ -95,6 +95,16 @@ def conv_instrument(features, kernels, biases):
     
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 3)
+    '''
+    
+    # Upscale smaller feature maps
+    _, height, width, depth = pool_freq4.get_shape()
+    pool_freq1_up = tf.image.resize_nearest_neighbor(pool_freq1, [height, width])
+    pool_freq2_up = tf.image.resize_nearest_neighbor(pool_freq2, [height, width])
+    pool_freq3_up = tf.image.resize_nearest_neighbor(pool_freq3, [height, width])
+    
+    # Concat into same feature map
+    freq_map = tf.concat([pool_freq1_up, pool_freq2_up, pool_freq3_up, pool_freq4], 3)
     
     # Post image of feedback map
     feedback_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 2)
