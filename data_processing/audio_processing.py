@@ -69,6 +69,18 @@ def computeFB(sample_rate, nfilters, pow_frames, NFFT):
     
     return filter_banks
 
+def convertSampleRate(input, inrate, refrate):
+
+# Convert fb sample rate to match reference's
+    audio_converted = audioop.ratecv(
+        input,          # input
+        input.itemsize, # bit depth (bytes)
+        1, inrate,      # channels, inrate
+        refrate,        # outrate
+        None)           # state..?
+    audio_converted = np.frombuffer(audio_converted[0], dtype=np.int16)
+    
+    return audio_converted
     
 # Converts WAV file or audio array into frequency spectrum
 # frame_size  : how many ms for fft window
@@ -140,6 +152,9 @@ def convertWav(input, \
     ###dB
     #mag_frames = 20 * np.log10(mag_frames_raw)
     pow_frames = 20 * np.log10(pow_frames_raw)
+    
+    ###Frequency bins
+    bins = np.fft.rfftfreq(NFFT, 1/sample_rate)
     
     if visualize:
         ###Plot
@@ -545,6 +560,14 @@ class feedback:
                         self.wav_dict[filename][1][:, 0]/2 + self.wav_dict[filename][1][:, 1]/2
                     self.wav_dict[filename][1] = \
                         np.array(average, dtype=dtype)
+                        
+                # Convert sample rate
+                ref_rate = 44100
+                if self.wav_dict[filename][0] != ref_rate:
+                    self.wav_dict[filename][1] = convertSampleRate(self.wav_dict[filename][1],
+                                                                   self.wav_dict[filename][0],
+                                                                   ref_rate)
+                    self.wav_dict[filename][0] = ref_rate
             
             
             ### Greedily sample areas of wavs above volume threshold
@@ -754,7 +777,7 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = True # Return wav or not
+    unprocessed = False # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     
