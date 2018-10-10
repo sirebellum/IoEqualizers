@@ -62,7 +62,7 @@ def classifier(features, labels, mode, params):
       tf.summary.image(
         "Image",
         input_layer,
-        max_outputs=9
+        max_outputs=18
       )
 
   # Calculate Loss (for both TRAIN and EVAL modes)

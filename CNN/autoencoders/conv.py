@@ -106,7 +106,7 @@ def conv_instrument(features, kernels, biases):
     tf.summary.image(
         "feedback_map",
         feedback_map,
-        max_outputs=9
+        max_outputs=18
       )
     
     # Deepen
