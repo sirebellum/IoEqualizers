@@ -8,9 +8,16 @@ import requests
 import data_processing.audio_processing as ap
 from multiprocessing import Process, Queue
 
+#Argument parsing
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("model_id", help='relative path to model to be loaded.')
+parser.add_argument("--server", default='192.168.12.3', help='Models version number.')
+args = parser.parse_args()
+
 # Server data
-server = '192.168.12.3:8501' # Rest API port, grpc is 8500
-model_name = 'feedback56'
+server = args.server+':8501' # Rest API port, grpc is 8500
+model_name = args.model_id
 signature_name = 'predict_class'
 url = "http://"+server+"/v1/models/"+model_name+":predict"
 

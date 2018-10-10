@@ -31,7 +31,7 @@ args = parser.parse_args()
 # Directory setup
 abs_path = os.path.abspath(__file__) # Absolute path of this file
 directory = os.path.dirname(abs_path)
-model_dir = directory+"/models/"+args.output_name
+model_dir = directory+args.output_name
 
 # Get pretrained weights for feature extractor
 weights = None

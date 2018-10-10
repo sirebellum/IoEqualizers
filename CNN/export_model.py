@@ -14,15 +14,13 @@ import os
 #Argument parsing
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("model_id", help='Model id name to be loaded.')
+parser.add_argument("model_id", help='Relative path to model to be loaded.')
 parser.add_argument("output_id", help='Model id name to be saved as.')
 parser.add_argument("--model_version", default=1, help='Models version number.')
-parser.add_argument("--work_dir", default='./models', help='Working directory.')
 parser.add_argument("--export_model_dir", default='./deploy', help='Directory where the model exported files should be placed.')
 args = parser.parse_args()
 
 model_name = str(args.model_id)
-log_folder = args.work_dir
 
 def main(_):
 
@@ -53,7 +51,7 @@ def main(_):
         predictions_tf = tf.argmax(logits_tf, axis=1)
 
         # specify the directory where the pre-trained model weights are stored
-        pre_trained_model_dir = os.path.join(log_folder, model_name)
+        pre_trained_model_dir = os.path.join(model_name)
 
         saver = tf.train.Saver()
 
