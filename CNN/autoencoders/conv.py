@@ -98,7 +98,11 @@ def conv_instrument(features, kernels, biases):
     
     # Post image of feedback map
     feedback_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 2)
-    feedback_map = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
+    feedback_map0 = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
+    feedback_map1 = tf.slice(feedback_map, [0, 0, 0, 3], [-1, -1, -1, 3])
+    feedback_map2 = tf.slice(feedback_map, [0, 0, 0, 6], [-1, -1, -1, 2])
+    feedback_map2 = tf.pad(feedback_map2, tf.constant([[0, 0], [0, 0], [0, 0], [0, 1]]))
+    feedback_map = tf.concat([feedback_map0, feedback_map1, feedback_map2], 2)
     tf.summary.image(
         "feedback_map",
         feedback_map,
