@@ -433,7 +433,7 @@ def histogram(x, name, nbins=10):
     plt.yscale('log', nonposy='clip')
     
     plt.show()
-    import ipdb;ipdb.set_trace()
+    print(bins)
     
 # Class to pull feedback instances from multiple annotation files
 class feedback:
