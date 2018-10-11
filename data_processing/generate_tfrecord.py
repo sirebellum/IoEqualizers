@@ -6,14 +6,6 @@ import audio_processing as ap
 import os
 import glob
 
-def label_number(label_string): #turn string into integer
-  if "dark" in label_string:
-    return 0
-  elif "bright" in label_string: 
-    return 1
-  else:
-    return 2
-
 def _list_feature(value):
   return tf.train.Feature(int64_list =tf.train.Int64List(value=value.reshape(-1)))
 
@@ -100,7 +92,7 @@ def generate(path_to_write, dataset_dir):
     shard = 0
     
     # Instances to write at a time
-    num_instances = 12800
+    num_instances = 2560
     
     # Nsynth dataset
     #dataset = ap.nsynth(dataset_dir)
