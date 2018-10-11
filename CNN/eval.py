@@ -31,7 +31,7 @@ args = parser.parse_args()
 # Directory setup
 abs_path = os.path.abspath(__file__) # Absolute path of this file
 directory = os.path.dirname(abs_path)
-model_dir = directory+args.output_name
+model_dir = os.path.join(directory, args.output_name)
 
 # Get pretrained weights for feature extractor
 weights = None
@@ -77,7 +77,7 @@ def main(unused_argv):
     params['weights'] = weights
 
     # Reduce GPU memory allocation
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.4)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.1)
     sess_config = tf.ConfigProto(gpu_options=gpu_options)
     estimator_config = tf.estimator.RunConfig(session_config=sess_config)
     

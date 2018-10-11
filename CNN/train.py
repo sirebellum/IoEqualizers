@@ -82,7 +82,7 @@ def main(unused_argv):
     params['weights'] = weights
 
     # Reduce GPU memory allocation
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.48)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.3)
     sess_config = tf.ConfigProto(gpu_options=gpu_options)
     
     # Estimator config to change frequency of ckpt files
