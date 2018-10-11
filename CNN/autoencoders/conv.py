@@ -87,27 +87,27 @@ def conv_instrument(features, kernels, biases):
     pool_freq2 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool6-')(conv_freq2)
     pool_freq3 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool7-')(conv_freq3)
     pool_freq4 = tf.layers.MaxPooling2D((2, WIDTH/8), (1, WIDTH/16), padding='same', name='pool8-')(conv_freq4)
-    
+    '''
     # Pad smaller feature maps
-    pool_freq1_padded = tf.pad(pool_freq1, tf.constant([[0, 0], [17, 17], [0, 0], [0, 0]]))
-    pool_freq2_padded = tf.pad(pool_freq2, tf.constant([[0, 0], [15, 15], [0, 0], [0, 0]]))
-    pool_freq3_padded = tf.pad(pool_freq3, tf.constant([[0, 0], [11, 11], [0, 0], [0, 0]]))
+    pool_freq1 = tf.pad(pool_freq1, tf.constant([[0, 0], [17, 17], [0, 0], [0, 0]]))
+    pool_freq2 = tf.pad(pool_freq2, tf.constant([[0, 0], [15, 15], [0, 0], [0, 0]]))
+    pool_freq3 = tf.pad(pool_freq3, tf.constant([[0, 0], [11, 11], [0, 0], [0, 0]]))
     
     # Concat into same feature map
-    freq_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 3)
-    
+    freq_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 3)
     '''
+    
     # Upscale smaller feature maps
     _, height, width, depth = pool_freq4.get_shape()
-    pool_freq1_up = tf.image.resize_nearest_neighbor(pool_freq1, [height, width])
-    pool_freq2_up = tf.image.resize_nearest_neighbor(pool_freq2, [height, width])
-    pool_freq3_up = tf.image.resize_nearest_neighbor(pool_freq3, [height, width])
+    pool_freq1 = tf.image.resize_nearest_neighbor(pool_freq1, [height, width])
+    pool_freq2 = tf.image.resize_nearest_neighbor(pool_freq2, [height, width])
+    pool_freq3 = tf.image.resize_nearest_neighbor(pool_freq3, [height, width])
     
     # Concat into same feature map
-    freq_map = tf.concat([pool_freq1_up, pool_freq2_up, pool_freq3_up, pool_freq4], 3)
-    '''
+    freq_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 3)
+    
     # Post image of feedback map
-    feedback_map = tf.concat([pool_freq1_padded, pool_freq2_padded, pool_freq3_padded, pool_freq4], 2)
+    feedback_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 2)
     feedback_map0 = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
     feedback_map1 = tf.slice(feedback_map, [0, 0, 0, 3], [-1, -1, -1, 3])
     feedback_map2 = tf.slice(feedback_map, [0, 0, 0, 6], [-1, -1, -1, 2])
@@ -121,13 +121,13 @@ def conv_instrument(features, kernels, biases):
     
     # Deepen
     conv1 = tf.layers.Conv2D(
-        8, (3, 3),activation='relu',
+        16, (3, 3),activation='relu',
         padding='valid',name='conv9-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(freq_map)
     conv2 = tf.layers.Conv2D(
-        8, (3, 3),activation='relu',
+        16, (3, 3),activation='relu',
         padding='valid',name='conv10-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
