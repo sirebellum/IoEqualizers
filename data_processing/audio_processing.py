@@ -720,16 +720,15 @@ class feedback:
             data = {}
             
             # Process feedback chunks
-            if not unprocessed: # Get ffts
-                sample_rates = [self.wav_dict[filename][0] for filename in filenames]
-                ffts = [convertWav(self.wav_dict[filenames[x]][1],
-                                   sample_rate=sample_rates[x],
-                                   crop_beg=beg[x],
-                                   crop_end=beg[x]+dur[x]) \
-                            for x in range(0, len(filenames))]
-                data['fft'] = ffts
+            sample_rates = [self.wav_dict[filename][0] for filename in filenames]
+            ffts = [convertWav(self.wav_dict[filenames[x]][1],
+                               sample_rate=sample_rates[x],
+                               crop_beg=beg[x],
+                               crop_end=beg[x]+dur[x]) \
+                        for x in range(0, len(filenames))]
+            data['fft'] = ffts
             
-            else: # Get raw audio
+            if unprocessed: # Get raw audio
                 sample_rates = [self.wav_dict[filename][0] for filename in filenames]
                 audios = [convertWav(self.wav_dict[filenames[x]][1],
                                      sample_rate=sample_rates[x],
@@ -777,13 +776,12 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = False # Return wav or not
+    unprocessed = True # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     
-    if not unprocessed:
-        ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
-    else: # Set up audio output
+    ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
+    if unprocessed: # Set up audio output
         import wave
         import pyaudio
         #define stream chunk   
@@ -796,14 +794,14 @@ def main():
                         channels=1,  
                         rate=ref_sample,  
                         output=True)
-                    
+
     # Play/show
     while feedbacks is not None:
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
             # Play audio
             if unprocessed:
-                if feedbacks['fb'][x] == 0:
-              
+                if feedbacks['fb'][x] == 1:
+                
                     instance = feedbacks['audio'][x]
                     if feedbacks['sample_rate'][x] != ref_sample:
                         # Convert fb sample rate to match instances's
@@ -823,7 +821,7 @@ def main():
                     time_amplitude = sum(abs(instance))/len(instance)
                     fft = convertWav(instance,
                                      sample_rate=ref_sample)
-                                     
+                    
                     if float("-inf") in fft or float("+inf") in fft:
                         print("inf")
                     else:
@@ -839,11 +837,9 @@ def main():
                         stream.write(data)
                         data = f.readframes(chunk)
             
-            # Display FFTs
-            else:
-                if feedbacks['fb'][x] == 0:
-                    plt.imshow(ffts[x])
-                    plt.draw(); plt.pause(0.001)
+                # Display FFTs]
+                plt.imshow(ffts[x])
+                plt.draw(); plt.pause(0.001)
         
         # Get next batch
         feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
