@@ -59,25 +59,25 @@ def conv_instrument(features, kernels, biases):
 
     # Capture largest frequency dependent features
     conv_freq1 = tf.layers.Conv2D(
-        8, (HEIGHT/2, 2), strides=(HEIGHT/4, 2),
+        6, (HEIGHT/2, 2), strides=(HEIGHT/4, 2),
         activation='relu', padding='same', name='conv1-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     # Capture large frequency dependent features
     conv_freq2 = tf.layers.Conv2D(
-        8, (HEIGHT/4, 2), strides=(HEIGHT/8, 2),
+        6, (HEIGHT/4, 2), strides=(HEIGHT/8, 2),
         activation='relu', padding='same', name='conv2-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     # Capture small frequency dependent features
     conv_freq3 = tf.layers.Conv2D(
-        8, (HEIGHT/8, 2), strides=(HEIGHT/16, 2),
+        6, (HEIGHT/8, 2), strides=(HEIGHT/16, 2),
         activation='relu', padding='same', name='conv3-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
     # Capture smallest frequency dependent features
     conv_freq4 = tf.layers.Conv2D(
-        8, (HEIGHT/16, 2), strides=(HEIGHT/32, 2),
+        6, (HEIGHT/16, 2), strides=(HEIGHT/32, 2),
         activation='relu', padding='same', name='conv4-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
@@ -110,9 +110,9 @@ def conv_instrument(features, kernels, biases):
     feedback_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 2)
     feedback_map0 = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
     feedback_map1 = tf.slice(feedback_map, [0, 0, 0, 3], [-1, -1, -1, 3])
-    feedback_map2 = tf.slice(feedback_map, [0, 0, 0, 6], [-1, -1, -1, 2])
-    feedback_map2 = tf.pad(feedback_map2, tf.constant([[0, 0], [0, 0], [0, 0], [0, 1]]))
-    feedback_map = tf.concat([feedback_map0, feedback_map1, feedback_map2], 2)
+    #feedback_map2 = tf.slice(feedback_map, [0, 0, 0, 6], [-1, -1, -1, 2])
+    #feedback_map2 = tf.pad(feedback_map2, tf.constant([[0, 0], [0, 0], [0, 0], [0, 1]]))
+    feedback_map = tf.concat([feedback_map0, feedback_map1], 2)
     tf.summary.image(
         "feedback_map",
         feedback_map,

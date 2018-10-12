@@ -9,10 +9,11 @@ import glob
 import random
 import audioop
 
-# Crop dimensions
+# Global sample attributes
 HEIGHT = 112
 WIDTH = 56
 INSTANCE_SIZE = 0.6
+REF_RATE = 44100
 # Plot BW spectrum picture. Removes infinities
 def plotSpectrumBW(data):
     
@@ -562,7 +563,7 @@ class feedback:
                         np.array(average, dtype=dtype)
                         
                 # Convert sample rate
-                ref_rate = 44100
+                ref_rate = REF_RATE
                 if self.wav_dict[filename][0] != ref_rate:
                     self.wav_dict[filename][1] = convertSampleRate(self.wav_dict[filename][1],
                                                                    self.wav_dict[filename][0],
@@ -798,10 +799,9 @@ def main():
     # Play/show
     while feedbacks is not None:
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
-            # Play audio
-            if unprocessed:
-                if feedbacks['fb'][x] == 1:
-                
+            if feedbacks['fb'][x] == 1:
+                # Play audio
+                if unprocessed:
                     instance = feedbacks['audio'][x]
                     if feedbacks['sample_rate'][x] != ref_sample:
                         # Convert fb sample rate to match instances's
