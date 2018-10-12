@@ -33,10 +33,12 @@ def classifier(features, labels, mode, params):
   
   # Dense layer
   final_flat = tf.reshape(feature_map, [-1, height * width * depth])
+  dropout = tf.layers.dropout(
+      inputs=final_flat, rate=0.0, training=mode == tf.estimator.ModeKeys.TRAIN)
 
   # Logits Layer
   logits = tf.layers.dense(
-    inputs=final_flat,
+    inputs=dropout,
     kernel_regularizer=tf.contrib.layers.l1_regularizer(BETA),
     units=NUMCLASSES)
 
