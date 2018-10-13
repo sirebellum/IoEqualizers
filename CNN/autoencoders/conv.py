@@ -136,6 +136,19 @@ def conv_instrument(features, kernels, biases):
     pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv2)
     feature_map = pool1
     
+    # Post image of feature map
+    feature_map0 = tf.slice(feature_map, [0, 0, 0, 0], [-1, -1, -1, 3])
+    feature_map1 = tf.slice(feature_map, [0, 0, 0, 3], [-1, -1, -1, 3])
+    feature_map2 = tf.slice(feature_map, [0, 0, 0, 6], [-1, -1, -1, 3])
+    feature_map3 = tf.slice(feature_map, [0, 0, 0, 9], [-1, -1, -1, 3])
+    feature_map4 = tf.slice(feature_map, [0, 0, 0, 12], [-1, -1, -1, 3])
+    feature_image = tf.concat([feature_map0, feature_map1, feature_map2, feature_map3, feature_map4], 2)
+    tf.summary.image(
+        "feature_map",
+        feature_image,
+        max_outputs=18
+      )
+    
     # If valid weights were loaded
     if restore:
         # Don't update layers
