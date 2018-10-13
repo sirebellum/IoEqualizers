@@ -635,9 +635,9 @@ class feedback:
                     volumes.append( volume )
             histogram(volumes, "volumes", nbins=20)
         
-        ### Mark silent instances
+        ### Mark silent instances, get rid of short instances
         delete = list()
-        threshold = 1500 # FFT amp threshold
+        threshold = 1000 # FFT amp threshold
         for x in range(0, self.num_instances):
             wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
             beg = self.dataset["beginning"][x]
@@ -650,8 +650,10 @@ class feedback:
             fft_time_samples = len(instance_fft[0])
             total_fft_volume = sum(sum(abs(instance_fft)))
             volume = total_fft_volume/fft_time_samples
-            if volume < threshold: delete.append(x)
+            
+            if volume < threshold:       delete.append(x)
             elif volume == float("inf"): delete.append(x)
+            elif fft_time_samples < WIDTH:  delete.append(x)
         # Delete silent instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
