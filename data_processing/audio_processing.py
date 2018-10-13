@@ -573,7 +573,7 @@ class feedback:
             
             ### Greedily sample areas of wavs above volume threshold
             add_instances = sum(self.dataset['fb'])*50 # num_feedbacks
-            threshold = 100 # Avg per sample
+            threshold = 0 # Avg per sample
             
             # Get inputs for each wav (multiprocessing)
             inputs = list()
@@ -637,22 +637,21 @@ class feedback:
         
         ### Mark silent instances
         delete = list()
-        threshold = 2500 # FFT amp threshold
+        threshold = 1500 # FFT amp threshold
         for x in range(0, self.num_instances):
-            if self.dataset['fb'][x] == 1:
-                wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
-                beg = self.dataset["beginning"][x]
-                end = self.dataset["beginning"][x] + self.dataset["duration"][x]
-                
-                instance_fft = convertWav(self.wav_dict[wav_path][1],
-                                          sample_rate=self.wav_dict[wav_path][0],
-                                          crop_beg=beg,
-                                          crop_end=end)
-                fft_time_samples = len(instance_fft[0])
-                total_fft_volume = sum(sum(abs(instance_fft)))
-                volume = total_fft_volume/fft_time_samples
-                if volume < threshold: delete.append(x)
-                elif volume == float("inf"): delete.append(x)
+            wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
+            beg = self.dataset["beginning"][x]
+            end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+            
+            instance_fft = convertWav(self.wav_dict[wav_path][1],
+                                      sample_rate=self.wav_dict[wav_path][0],
+                                      crop_beg=beg,
+                                      crop_end=end)
+            fft_time_samples = len(instance_fft[0])
+            total_fft_volume = sum(sum(abs(instance_fft)))
+            volume = total_fft_volume/fft_time_samples
+            if volume < threshold: delete.append(x)
+            elif volume == float("inf"): delete.append(x)
         # Delete silent instances
         for j in sorted(delete, reverse=True):
             del self.dataset['wavfile'][j]
