@@ -637,7 +637,7 @@ class feedback:
         
         ### Mark silent instances, get rid of short instances
         delete = list()
-        threshold = 1000 # FFT amp threshold
+        threshold = 2000 # FFT amp threshold
         for x in range(0, self.num_instances):
             wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
             beg = self.dataset["beginning"][x]
@@ -784,68 +784,109 @@ def main():
     
     ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
     if unprocessed: # Set up audio output
-        import wave
-        import pyaudio
-        #define stream chunk   
-        chunk = 1024
-        #instantiate PyAudio  
-        p = pyaudio.PyAudio()  
-        #open stream  
-        ref_sample = feedbacks['sample_rate'][0]
-        stream = p.open(format=pyaudio.paInt16,  
-                        channels=1,  
-                        rate=ref_sample,  
-                        output=True)
+        from multiprocessing import Queue, Process
+        
+        # Launch wav reader with indicator queue
+        filename_queue = Queue()
+        queuedone = Queue()
+        wav = Process(target=wav_player,
+                      args=[filename_queue,
+                            queuedone],
+                      daemon = True)
+        wav.start()
 
     # Play/show
     while feedbacks is not None:
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
             if feedbacks['fb'][x] == 1:
+                
+                # Display FFTs]
+                plt.imshow(ffts[x])
+                plt.draw(); plt.pause(0.001)
+                
                 # Play audio
                 if unprocessed:
                     instance = feedbacks['audio'][x]
-                    if feedbacks['sample_rate'][x] != ref_sample:
+                    if feedbacks['sample_rate'][x] != REF_RATE:
                         # Convert fb sample rate to match instances's
                         instance = audioop.ratecv(
                             feedbacks['audio'][x],          # input
                             feedbacks['audio'][x].itemsize, # bit depth (bytes)
                             1, feedbacks['sample_rate'][x],       # channels, inrate
-                            ref_sample,             # outrate
+                            REF_RATE,             # outrate
                             None)                 # state..?
                         instance = np.frombuffer(instance[0], dtype=np.int16)
                         
                     # Write to temp wav file
-                    scipy.io.wavfile.write('temp.wav', ref_sample, instance)
+                    scipy.io.wavfile.write('temp.wav', REF_RATE, instance)
                     
                     # Printouts per sample
                     #print(feedbacks['wav'][x], feedbacks['beg'][x])
                     time_amplitude = sum(abs(instance))/len(instance)
-                    fft = convertWav(instance,
-                                     sample_rate=ref_sample)
                     
                     if float("-inf") in fft or float("+inf") in fft:
                         print("inf")
                     else:
-                        fft_time_samples = len(fft[0])
-                        total_fft_volume = sum(sum(abs(fft)))
+                        fft_time_samples = len(ffts[x][0])
+                        total_fft_volume = sum(sum(abs(ffts[x])))
                         print(int(total_fft_volume/fft_time_samples), # FFT Volume
                               int(time_amplitude))                    # Time Volume
                     
-                    f = wave.open('temp.wav',"rb")  
-                    # Begin playback
-                    data = f.readframes(chunk)
-                    while data:
-                        stream.write(data)
-                        data = f.readframes(chunk)
-            
-                # Display FFTs]
-                plt.imshow(ffts[x])
-                plt.draw(); plt.pause(0.001)
+                    # Play audio and wait for finish
+                    filename_queue.put("temp.wav")
+                    done = queuedone.get()
+                    
         
         # Get next batch
         feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
         if not unprocessed:
             ffts = [ plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
+    
+    # End playback
+    filename_queue.put(None)
+
+
+
+# Function ment to play wav in other thread
+def wav_player(queue, queueout):
+    import wave
+    import pyaudio
+    filename = queue.get()
+    
+    # Audio playback setup
+    f = wave.open(filename,"rb")
+    
+    #define stream chunk   
+    chunk = 1024
+    silence = chr(0)*chunk*2
+    
+    # Open pyaudio stream
+    p = pyaudio.PyAudio()  
+    #open stream  
+    stream = p.open(format=p.get_format_from_width(f.getsampwidth()),  
+                    channels=f.getnchannels(),  
+                    rate=f.getframerate(),  
+                    output=True)
+    
+    while filename is not None:
+        # Begin playback
+        data = f.readframes(chunk)
+        while data:
+            stream.write(data)
+            data = f.readframes(chunk) 
+            
+        # Indicate finished playing
+        queueout.put(1)
+
+        # Get next file
+        filename = None
+        while filename is None:
+            try: filename = queue.get(block=False)
+            except:
+                stream.write(silence)
+                filename = None
+        
+        f = wave.open(filename,"rb")
 
     #stop stream  
     stream.stop_stream()
