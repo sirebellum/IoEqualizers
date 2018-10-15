@@ -17,7 +17,7 @@ def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 
     return input_layer + noise
 
-def encode(features, weights, encoder):
+def encode(features, encoder, weights=None):
 
     # Initialization weights
     if weights is not None:
@@ -49,8 +49,8 @@ def encode(features, weights, encoder):
     
     return feature_map
 
-# Encoder with kernels specifically for instrument recognition
-def conv_instrument(features, kernels, biases):
+# Encoder with kernels specifically for frequency encoding
+def frequency_encoder(features, kernels, biases):
 
     # Check for valid weights
     restore = False
@@ -97,7 +97,7 @@ def conv_instrument(features, kernels, biases):
     freq_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 3)
     '''
     
-    # Upscale smaller feature maps
+    # Upscale smaller frequency maps
     _, height, width, depth = pool_freq4.get_shape()
     pool_freq1 = tf.image.resize_nearest_neighbor(pool_freq1, [height, width])
     pool_freq2 = tf.image.resize_nearest_neighbor(pool_freq2, [height, width])
@@ -106,28 +106,33 @@ def conv_instrument(features, kernels, biases):
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 3)
     
-    # Post image of feedback map
-    feedback_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 2)
-    feedback_map0 = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
-    feedback_map1 = tf.slice(feedback_map, [0, 0, 0, 3], [-1, -1, -1, 3])
-    #feedback_map2 = tf.slice(feedback_map, [0, 0, 0, 6], [-1, -1, -1, 2])
-    #feedback_map2 = tf.pad(feedback_map2, tf.constant([[0, 0], [0, 0], [0, 0], [0, 1]]))
-    feedback_map = tf.concat([feedback_map0, feedback_map1], 2)
-    tf.summary.image(
-        "feedback_map",
-        feedback_map,
-        max_outputs=18
-      )
+    # If valid weights were loaded
+    if restore:
+        # Don't update layers
+        tf.stop_gradient(conv_freq1)
+        tf.stop_gradient(conv_freq2)
+        tf.stop_gradient(conv_freq3)
+        tf.stop_gradient(conv_freq4)
     
+    return freq_map
+
+# Create deeper encoding of high level features
+def feature_encoder(features, kernels, biases):
+
+    # Check for valid weights
+    restore = False
+    if kernels[0] is not None:
+        restore = True
+
     # Deepen
     conv1 = tf.layers.Conv2D(
-        16, (3, 3),activation='relu',
+        6, (3, 3),activation='relu',
         padding='valid',name='conv9-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
-        bias_initializer=biases.pop())(freq_map)
+        bias_initializer=biases.pop())(features)
     conv2 = tf.layers.Conv2D(
-        16, (3, 3),activation='relu',
+        6, (3, 3),activation='relu',
         padding='valid',name='conv10-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
@@ -136,31 +141,14 @@ def conv_instrument(features, kernels, biases):
     pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv2)
     feature_map = pool1
     
-    # Post image of feature map
-    feature_map0 = tf.slice(feature_map, [0, 0, 0, 0], [-1, -1, -1, 3])
-    feature_map1 = tf.slice(feature_map, [0, 0, 0, 3], [-1, -1, -1, 3])
-    feature_map2 = tf.slice(feature_map, [0, 0, 0, 6], [-1, -1, -1, 3])
-    feature_map3 = tf.slice(feature_map, [0, 0, 0, 9], [-1, -1, -1, 3])
-    feature_map4 = tf.slice(feature_map, [0, 0, 0, 12], [-1, -1, -1, 3])
-    feature_image = tf.concat([feature_map0, feature_map1, feature_map2, feature_map3, feature_map4], 2)
-    tf.summary.image(
-        "feature_map",
-        feature_image,
-        max_outputs=18
-      )
-    
     # If valid weights were loaded
     if restore:
         # Don't update layers
-        tf.stop_gradient(conv_freq1)
-        tf.stop_gradient(conv_freq2)
-        tf.stop_gradient(conv_freq3)
-        tf.stop_gradient(conv_freq4)
         tf.stop_gradient(conv1)
         tf.stop_gradient(conv2)
     
     return feature_map
-
+    
 # Standard 3x3 encoder
 def encode3x3(features, kernels, biases):
 

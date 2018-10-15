@@ -8,14 +8,14 @@ import os
 import argparse
 import tensorflow as tf
 from functions import parse_record, get_weights
-import class_models
+import feedback_models
 import glob
 
 # Autoencoders
 from autoencoders import conv, vanilla
 
 # which model to use
-feature_extractor = conv.conv_instrument
+feature_extractor = conv.frequency_encoder
 
 tf.logging.set_verbosity(tf.logging.WARN)
 #DEBUG, INFO, WARN, ERROR, or FATAL
@@ -76,7 +76,6 @@ def main(unused_argv):
   
     # Define params for model
     params = {}
-    params['num_labels'] = 2
     params['feature_extractor'] = feature_extractor
     #params['noise'] = True
     params['weights'] = weights
@@ -93,7 +92,7 @@ def main(unused_argv):
 
     # Create the Estimator
     classifier = tf.estimator.Estimator(
-        model_fn=class_models.classifier,
+        model_fn=feedback_models.model,
         model_dir=model_dir,
         config=estimator_config,
         params=params)
