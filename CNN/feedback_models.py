@@ -14,16 +14,6 @@ def FeedbackNet(input, weights, feature_extractor):
     # Get high level features
     feedback_map = conv.encode(input, feature_extractor, weights=weights)
     
-    # Post image of feedback map
-    feedback_image0 = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
-    feedback_image1 = tf.slice(feedback_map, [0, 0, 0, 3], [-1, -1, -1, 3])
-    feedback_image = tf.concat([feedback_image0, feedback_image1], 2)
-    tf.summary.image(
-        "feedback_map",
-        feedback_image,
-        max_outputs=18
-      )
-    
     # Deepen to low level features
     feature_map = conv.encode(feedback_map, conv.feature_encoder)
     

@@ -106,6 +106,17 @@ def frequency_encoder(features, kernels, biases):
     # Concat into same feature map
     freq_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 3)
     
+    # Post image of feedback map BROKEN
+    feedback_map = tf.concat([pool_freq1, pool_freq2, pool_freq3, pool_freq4], 2)
+    feedback_image0 = tf.slice(feedback_map, [0, 0, 0, 0], [-1, -1, -1, 3])
+    feedback_image1 = tf.slice(feedback_map, [0, 0, 0, 3], [-1, -1, -1, 3])
+    feedback_image = tf.concat([feedback_image0, feedback_image1], 2)
+    tf.summary.image(
+        "feedback_map",
+        feedback_image,
+        max_outputs=18
+        )
+    
     # If valid weights were loaded
     if restore:
         # Don't update layers
