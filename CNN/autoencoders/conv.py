@@ -148,8 +148,14 @@ def feature_encoder(features, kernels, biases):
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(conv1)
+    conv3 = tf.layers.Conv2D(
+        6, (3, 3),activation='relu',
+        padding='valid',name='conv11-',
+        kernel_initializer=kernels.pop(),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        bias_initializer=biases.pop())(conv2)
         
-    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv2)
+    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv3)
     feature_map = pool1
     
     # If valid weights were loaded
