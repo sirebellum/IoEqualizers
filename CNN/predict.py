@@ -47,12 +47,11 @@ def create_json(images, signature_name):
 # Function ment to play wav in other thread, outputing whenever a certain
 #   number of frames are processed
 def wav_player(filename, queue):
-    global instance_samples # Instance size
 
     # Audio playback setup
     f = wave.open(filename,"rb")  
     #define stream chunk   
-    chunk = int(instance_samples/20)
+    chunk = 1024
     #instantiate PyAudio  
     p = pyaudio.PyAudio()  
     #open stream  
@@ -64,15 +63,9 @@ def wav_player(filename, queue):
                     
     # Begin playback
     data = f.readframes(chunk)
-    frame = 0
     while data:
         stream.write(data)
-        # Indicate calculation
-        if frame*chunk == instance_samples:
-            queue.put(True)
-            frame = 0
-        
-        frame += 1
+        queue.put(data)
         data = f.readframes(chunk) 
 
 
@@ -83,7 +76,7 @@ def wav_player(filename, queue):
     p.terminate()
     
     # End calculations
-    queue.put(False)
+    queue.put(None)
 
 
 if __name__ == "__main__":
@@ -92,6 +85,7 @@ if __name__ == "__main__":
     import wave  
     from PIL import Image
     import matplotlib.pyplot as plt
+    import struct
     
     # Signal processing signal
     input = "test_feedback.wav"
@@ -99,9 +93,9 @@ if __name__ == "__main__":
     
     # Get ffts
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-    ffts = [ap.convertWav(signal[0+x:x+instance_samples], sample_rate=sample_rate) \
-                for x in range(0, len(signal), instance_samples)]
-    ffts.reverse()
+    #ffts = [ap.convertWav(signal[0+x:x+instance_samples], sample_rate=sample_rate) \
+    #            for x in range(0, len(signal), instance_samples)]
+    #ffts.reverse()
     
     # Launch wav reader with indicator queue
     execute_queue = Queue()
@@ -112,11 +106,21 @@ if __name__ == "__main__":
     wav.start()
     
     # Detect feedback
-    while execute_queue.get() == True:
-        fft = ffts.pop()
+    fft = 0
+    counter = 0
+    while fft is not None:
+        counter += 1
+        
+        # Get data chunks from wav player and grow fft sample
+        fft = list()
+        while fft is not None and len(fft) <= instance_samples:
+            fft += struct.unpack('1024h', execute_queue.get())
+        
+        fft = np.asarray(fft, dtype=np.int16)
+        fft = ap.convertWav(fft, sample_rate=sample_rate)
         
         # Volume thresholding
-        threshold = 2500
+        threshold = 2000
         fft_time_samples = len(fft[0])
         total_fft_volume = sum(sum(abs(fft)))
         fft_volume = total_fft_volume/fft_time_samples
@@ -144,5 +148,6 @@ if __name__ == "__main__":
             image = np.pad(image, 2, mode='constant', constant_values=(1, 1))
             plt.imshow(image); plt.draw(); plt.pause(.001)
         else:
+            if counter%10 == 0: print("...")
             plt.imshow(image); plt.draw(); plt.pause(.001)
     
