@@ -1,6 +1,6 @@
 import tensorflow as tf
 from autoencoders import conv
-BETA = 0.0005 # L2 Beta
+BETA = 0.005 # L2 Beta
 
 # Get image size data based on processing
 from data_processing import audio_processing as ap
