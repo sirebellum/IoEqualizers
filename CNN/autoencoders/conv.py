@@ -237,9 +237,11 @@ def autoencoder(features, labels, mode, params):
     
     # Encode
     if noisy_layer is not None:
-        feature_map = encode(noisy_layer, weights, encoder)
+        feature_map = encode(noisy_layer, encoder)
+        feature_map = encode(feature_map, feature_encoder)
     else: 
-        feature_map = encode(input_layer, weights, encoder)
+        feature_map = encode(input_layer, encoder)
+        feature_map = encode(feature_map, feature_encoder)
     
     # Print dimensionality of feature map
     _, height, width, depth = feature_map.get_shape()
