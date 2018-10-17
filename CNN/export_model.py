@@ -2,12 +2,12 @@ import sys
 sys.path.append('../')
 
 import tensorflow as tf
-import class_models
+import feedback_models
 # Autoencoders
 from autoencoders import conv, vanilla
 
 # which model to use
-feature_extractor = conv.conv_instrument
+feature_extractor = conv.frequency_encoder
 
 import os
 
@@ -16,7 +16,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("model_id", help='Relative path to model to be loaded.')
 parser.add_argument("output_id", help='Model id name to be saved as.')
-parser.add_argument("--model_version", default=1, help='Models version number.')
+parser.add_argument("--version", default=1, help='Models version number.')
 parser.add_argument("--export_model_dir", default='./deploy', help='Directory where the model exported files should be placed.')
 args = parser.parse_args()
 
@@ -40,12 +40,11 @@ def main(_):
 
         # Define params for model
         params = {}
-        params['num_labels'] = 2
         params['feature_extractor'] = feature_extractor
         params['weights'] = None
         
         # perform inference on the input image
-        logits_tf = class_models.classifier(input_tensor, None, tf.estimator.ModeKeys.PREDICT, params)
+        logits_tf = feedback_models.model(input_tensor, None, tf.estimator.ModeKeys.PREDICT, params)
 
         # extract the classifications
         predictions_tf = tf.argmax(logits_tf, axis=1)
@@ -66,7 +65,7 @@ def main(_):
         export_path = os.path.join(
             tf.compat.as_bytes(export_path_base),
             tf.compat.as_bytes(args.output_id),
-            tf.compat.as_bytes(str(args.model_version)))
+            tf.compat.as_bytes(str(args.version)))
         print('Exporting trained model to', export_path)
         builder = tf.saved_model.builder.SavedModelBuilder(export_path)
 
