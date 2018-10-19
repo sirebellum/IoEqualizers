@@ -168,7 +168,7 @@ def convertWav(input, \
     #filter_banks = computeFB(sample_rate, 28, pow_frames_raw, NFFT)
     
     # Make spectrogram t x f
-    return np.rot90(pow_frames)
+    return np.rot90(pow_frames), bins
 
 
 # Overlays feedback on top of audio, randomly jitters to the right
@@ -277,10 +277,61 @@ def histogram(x, name, nbins=10):
     print(bins)
 
 # Frequency gets converted to closest bin(s) in bins.
-def freq_to_bin(frequency, bins):
+def freq_to_bin(frequencies, bins):
 
-    return bins
+    # Figure out where frequencies fit into bins in order
+    idx = np.searchsorted(bins, frequencies, side="left")
+    # Adjust indices if freq is closer to lower index
+    idx = idx - (np.abs(frequencies - bins[idx-1]) < np.abs(frequencies - bins[idx]))
+    
+    return idx
+    
+# Map indices in one bin to a range of indices in other bin
+
     
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     
-   pass
+    # Get instances
+    dataset = {"wavfile": [],
+               "beginning": [],
+               "duration": [],
+               "frequencies": [],
+               "max_freq": []}
+    file = 'feedback/poetry_slam_ringout.csv'
+    with open(file, mode='r') as labelfile:
+        for line in labelfile:
+            entry = line.strip("\n").split(",")
+            entry.reverse()
+            dataset["wavfile"].append(     entry.pop() )
+            dataset["beginning"].append(   float(entry.pop()) )
+            dataset["duration"].append(    float(entry.pop()) )
+            dataset["frequencies"].append( list( map(int, entry) ) ) # Remaining items are freqs
+            
+    # Obtain ffts and bins
+    results = [convertWav("feedback/"+dataset['wavfile'][x],
+                       crop_beg=dataset['beginning'][x],
+                       crop_end=dataset['beginning'][x]+dataset['duration'][x]) \
+                for x in range(0, len(dataset['wavfile']))]
+    ffts, ref_bins = list( zip(*results) ) # Unpack into separate lists
+    
+    # Get fft images and crop bins
+    images = [ plotSpectrumBW(fft) for fft in ffts ]
+    ref_bins = ref_bins[0:HEIGHT]
+    
+    # Get bins from frequencies
+    bins = [ freq_to_bin(dataset["frequencies"][x], ref_bins[x]) \
+                for x in range(0, len(dataset["frequencies"])) ]
+    
+    # Print out ffts with frequencies highlighted
+    instances = list( zip(images, bins) )
+    for instance in instances:
+        # Adjust bins to match image indices
+        indices = np.asarray(instance[1])
+        indices = len(instance[0]) - indices
+        # Draw
+        instance[0][indices] = 255
+        plt.imshow(instance[0])
+        plt.draw(); plt.pause(0.001); input()
+    
+    import ipdb;ipdb.set_trace()
