@@ -307,7 +307,7 @@ class feedback:
                                crop_beg=beg[x],
                                crop_end=beg[x]+dur[x]) \
                         for x in range(0, len(filenames))]
-            data['fft'] = ffts
+            data['fft'] = [ap.plotSpectrumBW(fft) for fft in ffts]
             
             if unprocessed: # Get raw audio
                 sample_rates = [self.wav_dict[filename][0] for filename in filenames]
@@ -521,7 +521,7 @@ def main():
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     
-    ffts = [ ap.plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
+    ffts = feedbacks['fft']
     if unprocessed: # Set up audio output
         from multiprocessing import Queue, Process
         
@@ -578,8 +578,7 @@ def main():
         
         # Get next batch
         feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
-        if not unprocessed:
-            ffts = [ ap.plotSpectrumBW(fft) for fft in feedbacks['fft'] ]
+        ffts = feedbacks['fft']
     
     # End playback
     filename_queue.put(None)

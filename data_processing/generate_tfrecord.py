@@ -103,7 +103,8 @@ def generate(path_to_write, dataset_dir):
     
     batch = dataset.returnInstance(num_instances)
     while batch is not None:
-        images = [ ap.plotSpectrumBW(image).flatten() for image in batch['fft'] ]
+        #images = [ ap.plotSpectrumBW(image).flatten() for image in batch['fft'] ]
+        images = [ image.flatten() for image in batch['fft'] ]
         images = np.asarray(images, dtype=np.float32)
         images *= 1/255.0
         
