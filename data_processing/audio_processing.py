@@ -276,8 +276,8 @@ def histogram(x, name, nbins=10):
     plt.show()
     print(bins)
 
-# Frequencies get converted to closest bin in bins.
-def freqs_to_bin(freqs, bins):
+# Frequencies get converted to closest bin indices in bins.
+def freqs_to_idx(freqs, bins):
     assert bins.ndim == 2
     assert len(bins) == len(freqs)
 
@@ -349,13 +349,13 @@ if __name__ == "__main__":
     ref_bins = np.asarray(ref_bins)[:, 0:HEIGHT]
     
     # Get bins from frequencies
-    bins = freqs_to_bin(dataset["frequencies"], ref_bins)
+    idxs = freqs_to_idx(dataset["frequencies"], ref_bins)
     
     # Get frequency vector
-    vectors = idx_to_vector(bins, ref_bins)
+    vectors = idx_to_vector(idxs, ref_bins)
     
     # Print out ffts with frequencies highlighted
-    instances = list( zip(images, bins) )
+    instances = list( zip(images, idxs) )
     for instance in instances:
         # Adjust bins to match image indices
         indices = np.asarray(instance[1])
