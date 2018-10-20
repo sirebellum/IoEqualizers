@@ -276,7 +276,7 @@ def histogram(x, name, nbins=10):
     plt.show()
     print(bins)
 
-# Frequency gets converted to closest bin(s) in bins.
+# Frequencies gets converted to closest bin in bins.
 def freq_to_bin(frequencies, bins):
 
     # Figure out where frequencies fit into bins in order
@@ -286,8 +286,30 @@ def freq_to_bin(frequencies, bins):
     
     return idx
     
-# Map indices in one bin to a range of indices in other bin
+# Map indices to a binary hot vector within range of freq bins
+def idx_to_vector(indices, bins):
+    assert bins.ndim == 2
 
+    # Create empty (0) arrays with correct shape
+    instances = len(indices)
+    num_freqs = bins.shape[1]
+    vectors = np.zeros((instances, num_freqs), dtype=np.int64)
+    # Set 1s
+    for vector, index in zip(vectors, indices):
+        vector[index] = 1
+    
+    return vectors
+
+# Map binary hot vector with freq bins to actual frequencies
+def vector_to_idx(vectors, bins):
+    assert bins.ndim == 2
+    
+    # Create lists with indices for one hots
+    indices = list()
+    for vector in vectors:
+        indices.append( np.asarray([x for x in range(0, len(vector)) if vector[x] == 1]) )
+    
+    return indices
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -314,14 +336,18 @@ if __name__ == "__main__":
                        crop_end=dataset['beginning'][x]+dataset['duration'][x]) \
                 for x in range(0, len(dataset['wavfile']))]
     ffts, ref_bins = list( zip(*results) ) # Unpack into separate lists
+    ref_bins = np.asarray(ref_bins)
     
     # Get fft images and crop bins
     images = [ plotSpectrumBW(fft) for fft in ffts ]
-    ref_bins = ref_bins[0:HEIGHT]
+    ref_bins = ref_bins[:, 0:HEIGHT]
     
     # Get bins from frequencies
     bins = [ freq_to_bin(dataset["frequencies"][x], ref_bins[x]) \
                 for x in range(0, len(dataset["frequencies"])) ]
+    
+    # Get frequency vector
+    vectors = idx_to_vector(bins, ref_bins)
     
     # Print out ffts with frequencies highlighted
     instances = list( zip(images, bins) )
