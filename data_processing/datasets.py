@@ -290,6 +290,9 @@ class feedback:
         ffts = None
         if self.num_accessed < self.num_instances:
             del ffts
+            # Storage dictionary
+            data = {}
+            
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
@@ -302,9 +305,7 @@ class feedback:
             fb = None # self_sample
             if 'fb' in self.dataset.keys():
                 fb = self.dataset['fb'][self.num_accessed:upper]
-            
-            # Storage dictionary
-            data = {}
+                data['fb'] = fb
             
             # Process feedback chunks
             sample_rates = [self.wav_dict[filename][0] for filename in filenames]
@@ -313,14 +314,19 @@ class feedback:
                                crop_beg=beg[x],
                                crop_end=beg[x]+dur[x]) \
                         for x in range(0, len(filenames))]
-            ffts, bins = list( zip(*ffts) ) # Unpack ffts and bins
+            ffts, ref_bins = list( zip(*ffts) ) # Unpack ffts and bins
             
-            # Convert to image
+            # Convert to image and crop
             data['fft'] = [ap.plotSpectrumBW(fft) for fft in ffts]
+            ref_bins = np.asarray(ref_bins)[:, 0:HEIGHT] # Convert and crop
             
             # Max frequency in fft image freq bins
-            data['max'] = [max(bin[0:HEIGHT]) for bin in bins]
+            data['max'] = [max(bins) for bins in ref_bins]
             data['freqs'] = freqs
+            
+            # Convert to freq vector
+            idxs = ap.freqs_to_idx(freqs, ref_bins)
+            data['freqs_vector'] = ap.idx_to_vector(idxs, ref_bins)
             
             if unprocessed: # Get raw audio
                 sample_rates = [self.wav_dict[filename][0] for filename in filenames]
@@ -341,8 +347,7 @@ class feedback:
 
             # Increment
             self.num_accessed += num
-
-            if fb is not None: data['fb'] = fb
+            
             return data
 
         # If no more instances to access
@@ -530,7 +535,7 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = True # Return wav or not
+    unprocessed = False # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     
@@ -555,10 +560,13 @@ def main():
                 # Calc freq bins
                 bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
                 bins = np.asarray(bins)
-                indices = ap.freq_to_bin(feedbacks['freqs'][x], bins)
-                indices = np.asarray(indices)
+                #indices = ap.freq_to_idx(feedbacks['freqs'][x], bins)
+                #indices = np.asarray(indices)
+                indices = ap.vector_to_idx( # add dim to match what function is expecting
+                            [feedbacks['freqs_vector'][x]],
+                            np.expand_dims(bins,0))
                 # Adjust bins to match image indices
-                indices = len(ffts[x]) - indices
+                indices = len(ffts[x]) - indices[0]
                 # Draw
                 if len(indices) != 0:
                     ffts[x][indices] = 255
