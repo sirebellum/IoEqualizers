@@ -297,6 +297,7 @@ class feedback:
             # Get relevant chunks
             beg = self.dataset['beg'][self.num_accessed:upper]
             dur = self.dataset['dur'][self.num_accessed:upper]
+            freqs = self.dataset['freqs'][self.num_accessed:upper]
             
             fb = None # self_sample
             if 'fb' in self.dataset.keys():
@@ -319,6 +320,7 @@ class feedback:
             
             # Max frequency in fft image freq bins
             data['max'] = [max(bin[0:HEIGHT]) for bin in bins]
+            data['freqs'] = freqs
             
             if unprocessed: # Get raw audio
                 sample_rates = [self.wav_dict[filename][0] for filename in filenames]
@@ -550,7 +552,17 @@ def main():
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
             if feedbacks['fb'][x] == 1:
                 
-                # Display FFTs]
+                # Calc freq bins
+                bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
+                bins = np.asarray(bins)
+                indices = ap.freq_to_bin(feedbacks['freqs'][x], bins)
+                indices = np.asarray(indices)
+                # Adjust bins to match image indices
+                indices = len(ffts[x]) - indices
+                # Draw
+                if len(indices) != 0:
+                    ffts[x][indices] = 255
+                # Display FFTs
                 plt.imshow(ffts[x])
                 plt.draw(); plt.pause(0.001)
                 
