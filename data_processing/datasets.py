@@ -26,94 +26,61 @@ class feedback:
         abs_path = os.path.abspath(__file__) # Absolute path of this file
         self.wav_dir = os.path.join(os.path.dirname(abs_path), "feedback")
         
-        # internal annotations
-        self.dataset = {"wavfile": [], "beginning": [], "duration": []}
+        # internal dataset
+        self.dataset = {"wav": [],  # Full path to wav
+                        "beg": [],  # Beginning of instance in seconds
+                        "dur": [],  # Duration of instance in seconds
+                        "fb": [],   # Binary feedback class
+                        "freqs": []}# List of frequencies where feedback
         
         # Parse each csv
         for file in annotations:
             with open(file, mode='r') as labelfile:
                 for line in labelfile:
                     entry = line.strip("\n").split(",")
-                    self.dataset["wavfile"].append( os.path.join(self.wav_dir, entry[0]) )
-                    self.dataset["beginning"].append( float(entry[1]) )
-                    self.dataset["duration"].append( float(entry[2]) )
-                
+                    entry.reverse() # to pop off first items
+                    self.addInstance(wav=os.path.join(self.wav_dir, entry.pop()),
+                                     beg=float(entry.pop()),
+                                     dur=float(entry.pop()),
+                                     fb=1,
+                                     freqs=list(map(int, entry))) # Remaining items are freqs
+        
         # Access stats
-        self.num_instances = len(self.dataset["wavfile"])
+        self.update_stats()
         self.num_accessed = 0 # Increments for every accessed instance
         
+        # Length of instances in seconds
         self.instance_size = INSTANCE_SIZE
         
         ### Ensure feedback durations
         delete = list()
         for x in range(0, self.num_instances):
             # Chop up long instances
-            if self.dataset["duration"][x] > self.instance_size:
+            if self.dataset["dur"][x] > self.instance_size:
                 delete.append(x) # Delete offending instance later
-                num_splits = int(self.dataset["duration"][x] / self.instance_size)+1
+                num_splits = int(self.dataset["dur"][x] / self.instance_size)+1
                 for i in range(0, num_splits):
-                    self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                    new_beginning = self.dataset['beginning'][x]+i*self.instance_size
-                    self.dataset['beginning'].append(new_beginning)
-                    self.dataset['duration'].append(self.instance_size)
-                    
-            # Pad short instances after
-            if self.dataset["duration"][x] < self.instance_size:
-                self.dataset["duration"][x] = self.instance_size
+                    new_beginning = self.dataset['beg'][x]+i*self.instance_size
+                    self.addInstance(wav=self.dataset['wav'][x],
+                                     beg=new_beginning,
+                                     dur=self.instance_size,
+                                     fb=1,
+                                     freqs=self.dataset['freqs'][x])
+            # Pad short instances
+            if self.dataset["dur"][x] < self.instance_size:
+                self.dataset["dur"][x] = self.instance_size
         
         # Delete chopped up instances
-        for j in sorted(delete, reverse=True):
-            del self.dataset['wavfile'][j]
-            del self.dataset['beginning'][j]
-            del self.dataset['duration'][j]
+        self.delInstance(*delete)
         
         # New access stats
-        self.num_instances = len(self.dataset["wavfile"])
-        
+        self.update_stats()
         
         ### Non-feedback samples
         if self_sample:
         
-            # Append feedback labels for all the actual feedback
-            self.dataset['fb'] = []
-            for x in range(0, self.num_instances):
-                self.dataset['fb'].append(1)
-            '''
-            ### Get up to 4 non-feedback instances adjacent to actual feedback
-            for x in range(0, self.num_instances):
-                nonfb_beg = list()
-                # Pull two instances from right before feedback and two from right after
-                buff = self.instance_size/2 # So we don't pick up artifacts from poor labeling
-                nonfb_beg.append(self.dataset['beginning'][x] - buff - self.instance_size)
-                nonfb_beg.append(nonfb_beg[-1] - 0.01 - self.instance_size)
-                nonfb_beg.append(self.dataset['beginning'][x] + self.dataset['duration'][x] + buff)
-                nonfb_beg.append(nonfb_beg[-1] + 0.01 + self.instance_size)
-                
-                # Check new instances for overlap with existing instances
-                delete = list()
-                for j in range(0, len(nonfb_beg)):
-                    for i in range(0, len(self.dataset['beginning'])):
-                        if overlap(nonfb_beg[j],
-                                   self.instance_size,
-                                   self.dataset['beginning'][i],
-                                   self.dataset['duration'][i]) \
-                        and self.dataset['wavfile'][x] == self.dataset['wavfile'][i]:
-                            delete.append(j)
-                delete = set(delete) # Get rid of multiple overlaps
-                for j in sorted(delete, reverse=True):
-                    del nonfb_beg[j]
-                
-                # Create entries for remaining instances
-                if len(nonfb_beg) > 0:
-                    for beg in nonfb_beg:
-                        self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                        self.dataset['beginning'].append(beg)
-                        self.dataset['duration'].append(self.instance_size)
-                        self.dataset['fb'].append(0)
-            # Done with adjacent feedback instancing
-            '''
             ### Gather non-feedback wav files
-            wavs = list( set(self.dataset['wavfile']) )
+            wavs = list( set(self.dataset['wav']) )
             #wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
             
             # Add spoken/sung songs
@@ -162,9 +129,9 @@ class feedback:
                 # Get overlap labels
                 labels = list()
                 for x in range(0, self.num_instances):
-                    if self.dataset['wavfile'][x] == wav:
-                        labels.append( [self.dataset['beginning'][x], \
-                                        self.dataset['duration'][x]] )
+                    if self.dataset['wav'][x] == wav: # Only for same wav
+                        labels.append( [self.dataset['beg'][x], \
+                                        self.dataset['dur'][x]] )
                 
                 # listify for function input
                 input = [sample_rate, signal, self.instance_size, threshold, labels, wav]
@@ -173,7 +140,7 @@ class feedback:
             # Get instances from all wavs via multiprocessing
             pool = Pool(processes=4)
             instances_unformatted = pool.map(ap.slice_audio, inputs)
-            instances = list() # 
+            instances = list() # Get rid of per-wav lists
             for instance in instances_unformatted:
                 instances += instance
             pool.close()
@@ -185,28 +152,29 @@ class feedback:
             
             # Append instances to dataset
             for instance in instances:
-                self.dataset['wavfile'].append(instance[2])
-                self.dataset['beginning'].append(instance[0])
-                self.dataset['duration'].append(instance[1])
-                self.dataset['fb'].append(0)
+                self.addInstance(wav=instance[2],
+                                 beg=instance[0],
+                                 dur=instance[1],
+                                 fb=0,
+                                 freqs=[])
             # Done with non-silent sampling
             
             # New access stats
-            self.num_instances = len(self.dataset["wavfile"])
+            self.update_stats()
         
         ### Plot histogram of feedback magnitudes if testing
         if self.testing == True:
             volumes = list()
             for x in range(0, self.num_instances):
                 if self.dataset['fb'][x] == 1:
-                    wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
-                    beg = self.dataset["beginning"][x]
-                    end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+                    wav_path = os.path.join(self.wav_dir, self.dataset["wav"][x])
+                    beg = self.dataset["beg"][x]
+                    end = self.dataset["beg"][x] + self.dataset["dur"][x]
                     
                     instance_fft = ap.convertWav(self.wav_dict[wav_path][1],
                                               sample_rate=self.wav_dict[wav_path][0],
                                               crop_beg=beg,
-                                              crop_end=end)
+                                              crop_end=end)[0] # Only fft
                     fft_time_samples = len(instance_fft[0])
                     total_fft_volume = sum(sum(abs(instance_fft)))
                     volume = total_fft_volume/fft_time_samples
@@ -218,14 +186,14 @@ class feedback:
         delete = list()
         threshold = 2000 # FFT amp threshold
         for x in range(0, self.num_instances):
-            wav_path = os.path.join(self.wav_dir, self.dataset["wavfile"][x])
-            beg = self.dataset["beginning"][x]
-            end = self.dataset["beginning"][x] + self.dataset["duration"][x]
+            wav_path = os.path.join(self.wav_dir, self.dataset["wav"][x])
+            beg = self.dataset["beg"][x]
+            end = self.dataset["beg"][x] + self.dataset["dur"][x]
             
             instance_fft = ap.convertWav(self.wav_dict[wav_path][1],
                                       sample_rate=self.wav_dict[wav_path][0],
                                       crop_beg=beg,
-                                      crop_end=end)
+                                      crop_end=end)[0] # only fft
             fft_time_samples = len(instance_fft[0])
             total_fft_volume = sum(sum(abs(instance_fft)))
             volume = total_fft_volume/fft_time_samples
@@ -234,32 +202,31 @@ class feedback:
             elif volume == float("inf"): delete.append(x)
             elif fft_time_samples < WIDTH:  delete.append(x)
         # Delete silent instances
-        for j in sorted(delete, reverse=True):
-            del self.dataset['wavfile'][j]
-            del self.dataset['beginning'][j]
-            del self.dataset['duration'][j]
-            del self.dataset['fb'][j]
+        self.delInstance(*delete)
             
         # New access stats
-        self.num_instances = len(self.dataset["wavfile"])
+        self.update_stats()
                     
                     
         ### Create jittered duplicates of feedback
         for x in range(0, self.num_instances):
             if self.dataset['fb'][x] == 1:
-                    right_jitter = self.dataset['beginning'][x]+0.25*self.instance_size
-                    self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                    self.dataset['beginning'].append(right_jitter)
-                    self.dataset['duration'].append(self.instance_size)
-                    self.dataset['fb'].append(1)
-                    left_jitter = self.dataset['beginning'][x]-0.25*self.instance_size
-                    self.dataset['wavfile'].append(self.dataset['wavfile'][x])
-                    self.dataset['beginning'].append(left_jitter)
-                    self.dataset['duration'].append(self.instance_size)
-                    self.dataset['fb'].append(1)
+                right_jitter = self.dataset['beg'][x]+0.25*self.instance_size
+                self.addInstance(wav=self.dataset['wav'][x],
+                                 beg=right_jitter,
+                                 dur=self.instance_size,
+                                 fb=1,
+                                 freqs=self.dataset['freqs'][x])
+                                 
+                left_jitter = self.dataset['beg'][x]-0.25*self.instance_size
+                self.addInstance(wav=self.dataset['wav'][x],
+                                 beg=left_jitter,
+                                 dur=self.instance_size,
+                                 fb=1,
+                                 freqs=self.dataset['freqs'][x])
         
         # Final access stats
-        self.num_instances = len(self.dataset["wavfile"])
+        self.update_stats()
         print( "{} instances of feedback, {} of non-feedback"\
                     .format(sum(self.dataset['fb']), self.num_instances) )
         
@@ -267,16 +234,54 @@ class feedback:
         ### Shuffle everything
         # Break out dataset dictionary into per-instance list for shuffling
         temp = list()
-        for key in self.dataset.keys():
-            temp.append(self.dataset[key])
+        for key in self.dataset:
+            if len(self.dataset[key]) != 0:
+                temp.append(self.dataset[key])
         temp = list( zip(*temp) )
         
-        # Shuffle and reconbine into dictionary
+        # Shuffle and recombine into dictionary
         random.shuffle(temp)
         temp = list( zip(*temp) )
         temp.reverse()
-        for key in self.dataset.keys():
-            self.dataset[key] = temp.pop()
+        for key in self.dataset:
+            if len(self.dataset[key]) != 0:
+                self.dataset[key] = temp.pop()
+    
+    
+    # Updates num_instances while checking for equal instances in each column
+    def update_stats(self):
+        
+        # Check to make sure numer of instances doesn't change in columns
+        # unless 0, since no instance added to that column
+        count = 0
+        for key in self.dataset:
+            if len(self.dataset[key]) != 0:
+                if count != len(self.dataset[key]) and count != 0:
+                    exit("Uneven instance count " + key + "-1")
+                count = len(self.dataset[key])
+            
+        # Update num_instances if we good
+        self.num_instances = count
+    
+    #   Add instance to internal instance dataset while checking
+    # for validity of column titles
+    def addInstance(self, **kwargs):
+    
+        # Make sure keys match dataset
+        for key in kwargs:
+            if key not in self.dataset.keys():
+                exit("Invalid key: " + key)
+            else:
+                self.dataset[key].append( kwargs[key] )
+                
+    # Delete variable number of instances based on index
+    def delInstance(self, *args):
+    
+        # Delete instances column by column
+        for j in sorted(args, reverse=True):
+            for key in self.dataset:
+                if len(self.dataset[key]) != 0:
+                    del self.dataset[key][j]
         
     # Return num instances
     # If unprocessed is True, function returns raw audio data
@@ -288,10 +293,10 @@ class feedback:
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
-            filenames = self.dataset['wavfile'][self.num_accessed:upper]
+            filenames = self.dataset['wav'][self.num_accessed:upper]
             # Get relevant chunks
-            beg = self.dataset['beginning'][self.num_accessed:upper]
-            dur = self.dataset['duration'][self.num_accessed:upper]
+            beg = self.dataset['beg'][self.num_accessed:upper]
+            dur = self.dataset['dur'][self.num_accessed:upper]
             
             fb = None # self_sample
             if 'fb' in self.dataset.keys():
@@ -307,7 +312,13 @@ class feedback:
                                crop_beg=beg[x],
                                crop_end=beg[x]+dur[x]) \
                         for x in range(0, len(filenames))]
+            ffts, bins = list( zip(*ffts) ) # Unpack ffts and bins
+            
+            # Convert to image
             data['fft'] = [ap.plotSpectrumBW(fft) for fft in ffts]
+            
+            # Max frequency in fft image freq bins
+            data['max'] = [max(bin[0:HEIGHT]) for bin in bins]
             
             if unprocessed: # Get raw audio
                 sample_rates = [self.wav_dict[filename][0] for filename in filenames]
