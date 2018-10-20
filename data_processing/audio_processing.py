@@ -276,19 +276,25 @@ def histogram(x, name, nbins=10):
     plt.show()
     print(bins)
 
-# Frequencies gets converted to closest bin in bins.
-def freq_to_bin(frequencies, bins):
+# Frequencies get converted to closest bin in bins.
+def freqs_to_bin(freqs, bins):
+    assert bins.ndim == 2
+    assert len(bins) == len(freqs)
 
-    # Figure out where frequencies fit into bins in order
-    idx = np.searchsorted(bins, frequencies, side="left")
-    # Adjust indices if freq is closer to lower index
-    idx = idx - (np.abs(frequencies - bins[idx-1]) < np.abs(frequencies - bins[idx]))
+    idxs = list()
+    for freq, bin in zip(freqs, bins):
+        # Figure out where frequencies fit into bins in order
+        idx = np.searchsorted(bin, freq, side="left")
+        # Adjust indices if freq is closer to lower index
+        idx = idx - (np.abs(freq - bin[idx-1]) < np.abs(freq - bin[idx]))
+        idxs.append(idx)
     
-    return idx
+    return idxs
     
 # Map indices to a binary hot vector within range of freq bins
 def idx_to_vector(indices, bins):
     assert bins.ndim == 2
+    assert bins.shape[0] == len(indices)
 
     # Create empty (0) arrays with correct shape
     instances = len(indices)
@@ -303,6 +309,7 @@ def idx_to_vector(indices, bins):
 # Map binary hot vector with freq bins to actual frequencies
 def vector_to_idx(vectors, bins):
     assert bins.ndim == 2
+    assert bins.shape[0] == len(vectors)
     
     # Create lists with indices for one hots
     indices = list()
@@ -336,15 +343,13 @@ if __name__ == "__main__":
                        crop_end=dataset['beginning'][x]+dataset['duration'][x]) \
                 for x in range(0, len(dataset['wavfile']))]
     ffts, ref_bins = list( zip(*results) ) # Unpack into separate lists
-    ref_bins = np.asarray(ref_bins)
     
     # Get fft images and crop bins
     images = [ plotSpectrumBW(fft) for fft in ffts ]
-    ref_bins = ref_bins[:, 0:HEIGHT]
+    ref_bins = np.asarray(ref_bins)[:, 0:HEIGHT]
     
     # Get bins from frequencies
-    bins = [ freq_to_bin(dataset["frequencies"][x], ref_bins[x]) \
-                for x in range(0, len(dataset["frequencies"])) ]
+    bins = freqs_to_bin(dataset["frequencies"], ref_bins)
     
     # Get frequency vector
     vectors = idx_to_vector(bins, ref_bins)
