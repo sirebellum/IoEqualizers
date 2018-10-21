@@ -354,14 +354,14 @@ if __name__ == "__main__":
     
     # Get frequency vector
     vectors = idx_to_vector(idxs, ref_bins)
-    import ipdb; ipdb.set_trace()
+    
     # Print out ffts with frequencies highlighted
     instances = list( zip(images, idxs) )
     for instance in instances:
         # Adjust bins to match image indices
         indices = np.asarray(instance[1])
         indices = len(instance[0]) - indices
-        # Draw
-        instance[0][indices] = 255
+        # Draw on first couple pixels of freq
+        instance[0][indices, 0:5] = 255
         plt.imshow(instance[0])
         plt.draw(); plt.pause(0.001); input()
