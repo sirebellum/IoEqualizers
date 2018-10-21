@@ -10,7 +10,7 @@ import random
 import audioop
 
 # Global sample attributes
-HEIGHT = 112
+HEIGHT = 168
 WIDTH = 56
 INSTANCE_SIZE = 0.6
 REF_RATE = 44100

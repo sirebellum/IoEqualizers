@@ -77,7 +77,7 @@ def frequency_encoder(features, kernels, biases):
         bias_initializer=biases.pop())(features)
     # Capture smallest frequency dependent features
     conv_freq4 = tf.layers.Conv2D(
-        6, (HEIGHT/16, 2), strides=(HEIGHT/32, 2),
+        6, (HEIGHT/21, 2), strides=(HEIGHT/42, 2),
         activation='relu', padding='same', name='conv4-',
         kernel_initializer=kernels.pop(),
         bias_initializer=biases.pop())(features)
