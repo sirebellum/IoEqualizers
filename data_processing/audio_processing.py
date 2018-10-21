@@ -326,7 +326,8 @@ if __name__ == "__main__":
                "beginning": [],
                "duration": [],
                "frequencies": [],
-               "max_freq": []}
+               "max_freq": [],
+    }
     file = 'feedback/poetry_slam_ringout.csv'
     with open(file, mode='r') as labelfile:
         for line in labelfile:
@@ -339,8 +340,8 @@ if __name__ == "__main__":
             
     # Obtain ffts and bins
     results = [convertWav("feedback/"+dataset['wavfile'][x],
-                       crop_beg=dataset['beginning'][x],
-                       crop_end=dataset['beginning'][x]+dataset['duration'][x]) \
+                          crop_beg=dataset['beginning'][x],
+                          crop_end=dataset['beginning'][x]+dataset['duration'][x]) \
                 for x in range(0, len(dataset['wavfile']))]
     ffts, ref_bins = list( zip(*results) ) # Unpack into separate lists
     
