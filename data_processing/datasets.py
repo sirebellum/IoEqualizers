@@ -310,9 +310,9 @@ class feedback:
             # Process feedback chunks
             sample_rates = [self.wav_dict[filename][0] for filename in filenames]
             ffts = [ap.convertWav(self.wav_dict[filenames[x]][1],
-                               sample_rate=sample_rates[x],
-                               crop_beg=beg[x],
-                               crop_end=beg[x]+dur[x]) \
+                                  sample_rate=sample_rates[x],
+                                  crop_beg=beg[x],
+                                  crop_end=beg[x]+dur[x]) \
                         for x in range(0, len(filenames))]
             ffts, ref_bins = list( zip(*ffts) ) # Unpack ffts and bins
             
