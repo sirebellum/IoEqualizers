@@ -97,7 +97,7 @@ def convertWav(input, \
                frame_stride=0.01, \
                crop_beg=0, \
                crop_end=None, \
-               NFFT=256, \
+               NFFT=512, \
                visualize=False, \
                convert=True):
 
@@ -354,7 +354,7 @@ if __name__ == "__main__":
     
     # Get frequency vector
     vectors = idx_to_vector(idxs, ref_bins)
-    
+    import ipdb; ipdb.set_trace()
     # Print out ffts with frequencies highlighted
     instances = list( zip(images, idxs) )
     for instance in instances:
@@ -365,5 +365,3 @@ if __name__ == "__main__":
         instance[0][indices] = 255
         plt.imshow(instance[0])
         plt.draw(); plt.pause(0.001); input()
-    
-    import ipdb;ipdb.set_trace()
