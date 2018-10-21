@@ -2,17 +2,17 @@ import tensorflow as tf
 import random
 import math
 import numpy as np
-import audio_processing as ap
+import datasets
 import os
 import glob
 
 def _list_feature(value):
   return tf.train.Feature(int64_list =tf.train.Int64List(value=value.reshape(-1)))
 
-def np_to_tfrecords(X, Y, file_path_prefix, verbose=True):
+def np_to_tfrecords(X, file_path_prefix, verbose=True, **kwargs):
     """
-    Converts a Numpy array (or two Numpy arrays) into a tfrecord file.
-    For supervised learning, feed training inputs to X and training labels to Y.
+    Converts a Numpy arrays into a tfrecord file.
+    For supervised learning, feed training inputs to X and training labels to other kwargs.
     For unsupervised learning, only feed training inputs to X, and feed None to Y.
     The length of the first dimensions of X and Y should be the number of samples.
     
@@ -21,19 +21,13 @@ def np_to_tfrecords(X, Y, file_path_prefix, verbose=True):
     X : numpy.ndarray of rank 2
         Numpy array for training inputs. Its dtype should be float32, float64, or int64.
         If X has a higher rank, it should be rshape before fed to this function.
-    Y : numpy.ndarray of rank 2 or None
+    kwargs : numpy.ndarray(s) of rank 2 or None
         Numpy array for training labels. Its dtype should be float32, float64, or int64.
         None if there is no label array.
     file_path_prefix : str
         The path and name of the resulting tfrecord file to be generated, without '.tfrecords'
     verbose : bool
         If true, progress is reported.
-    
-    Raises
-    ------
-    ValueError
-        If input type is not float (64 or 32) or int.
-    
     """
     def _dtype_feature(ndarray):
         """match appropriate tf.train.Feature class with dtype of ndarray. """
@@ -45,19 +39,21 @@ def np_to_tfrecords(X, Y, file_path_prefix, verbose=True):
             return lambda array: tf.train.Feature(int64_list=tf.train.Int64List(value=array))
         else:  
             raise ValueError("The input should be numpy ndarray. \
-                               Instaed got {}".format(ndarray.dtype))
+                               Instead got {}".format(ndarray.dtype))
             
     assert isinstance(X, np.ndarray)
     assert len(X.shape) == 2  # If X has a higher rank, 
                                # it should be rshape before fed to this function.
-    assert isinstance(Y, np.ndarray) or Y is None
+    for key in kwargs:
+        assert isinstance(kwargs[key], np.ndarray) or kwargs is None
     
     # load appropriate tf.train.Feature class depending on dtype
     dtype_feature_x = _dtype_feature(X)
-    if Y is not None:
-        assert X.shape[0] == Y.shape[0]
-        assert len(Y.shape) == 2
-        dtype_feature_y = _dtype_feature(Y)            
+    dtype_feature_y = {}
+    for key in kwargs:
+        assert X.shape[0] == kwargs[key].shape[0]
+        assert len(kwargs[key].shape) == 2
+        dtype_feature_y[key] = _dtype_feature(kwargs[key])            
     
     # Generate tfrecord writer
     result_tf_file = file_path_prefix + '.tfrecords'
@@ -69,13 +65,14 @@ def np_to_tfrecords(X, Y, file_path_prefix, verbose=True):
     # and serialize it as ProtoBuf.
     for idx in range(X.shape[0]):
         x = X[idx]
-        if Y is not None:
-            y = Y[idx]
+        y = {}
+        for key in kwargs:
+            y[key] = kwargs[key][idx]
         
         d_feature = {}
         d_feature['X'] = dtype_feature_x(x)
-        if Y is not None:
-            d_feature['Y'] = dtype_feature_y(y)
+        for key in kwargs:
+            d_feature[key] = dtype_feature_y[key](y[key])
             
         features = tf.train.Features(feature=d_feature)
         example = tf.train.Example(features=features)
@@ -99,7 +96,7 @@ def generate(path_to_write, dataset_dir):
 
     # Feedback dataset
     feedback_files = glob.glob(dataset_dir+"*.csv")
-    dataset = ap.feedback(feedback_files, self_sample=True)
+    dataset = datasets.feedback(feedback_files, self_sample=True)
     
     batch = dataset.returnInstance(num_instances)
     while batch is not None:
@@ -109,18 +106,24 @@ def generate(path_to_write, dataset_dir):
         images *= 1/255.0
         
         # Labels
-        #instrument_source = [ label for label in batch['instrument_source'] ]
-        #instrument_source = np.asarray(instrument_source, dtype=np.int64)
-        #instrument_family = [ label for label in batch['instrument_family'] ]
-        #instrument_family = np.asarray(instrument_family, dtype=np.int64)
         fb = [ label for label in batch['fb'] ]
         fb = np.asarray(fb, dtype=np.int64)
-        # Aggregate labels
-        labels = list( zip(fb) )
-        labels = np.asarray(labels)
+        freqs = [ label for label in batch['freqs_vector'] ]
+        freqs = np.asarray(freqs, dtype=np.int64)
+        max = [ label for label in batch['max'] ]
+        max = np.asarray(max, dtype=np.int64)
+        # Match what tfrecord writer is expecting
+        fb = np.expand_dims(fb, 1)
+        max = np.expand_dims(max, 1)
         
         # Write tf records
-        np_to_tfrecords(images, labels, path_to_write+str(shard))
+        np_to_tfrecords(
+            images,
+            path_to_write+str(shard),
+            fb=fb,
+            freqs=freqs,
+            max=max,
+        )
         
         batch = dataset.returnInstance(num_instances)
         shard += 1

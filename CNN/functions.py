@@ -10,19 +10,25 @@ HEIGHT = ap.HEIGHT
 WIDTH = ap.WIDTH
       
 def parse_record(serialized_example): #parse a single binary example
-  """Parses a single tf.Example into image and label tensors."""
-  features = {'X': tf.FixedLenFeature([HEIGHT*WIDTH,], tf.float32),
-              'Y': tf.FixedLenFeature([1,], tf.int64)}
-  feature = tf.parse_single_example(serialized_example, features)
-  
-  image = tf.reshape(feature['X'], (WIDTH, HEIGHT))
-  #instrument_src = feature['Y'][0]
-  #instrument_fmly = feature['Y'][1]
-  feedback = feature['Y'][0]
-  
-  label = feedback
-  
-  return (image, label)
+    """Parses a single tf.Example into image and label tensors."""
+    tfcontent = {'X': tf.FixedLenFeature([HEIGHT*WIDTH,], tf.float32),
+                 'fb': tf.FixedLenFeature([1,], tf.int64),
+                 'freqs': tf.FixedLenFeature([HEIGHT,], tf.int64),
+                 'max': tf.FixedLenFeature([1,], tf.int64),
+                 }
+    feature = tf.parse_single_example(serialized_example, tfcontent)
+
+    image = tf.reshape(feature['X'], (WIDTH, HEIGHT))
+    
+    # fb classification labels go in labels
+    labels = feature['fb'][0]
+    
+    # other labels and images as features
+    features = {'image': image}
+    for key in feature:
+        if key != 'X': features[key] = feature[key]
+    
+    return (features, labels)
                         
 # get weights from checkpoint at weights                        
 def get_weights(weights):

@@ -44,10 +44,14 @@ def FeedbackNet(input, weights, feature_extractor):
     return logits
 
 def model(features, labels, mode, params):
+    # features breakout
+    image = features['image']
+    freqs = features['freqs'] # frequency vector
+    max = features['max']     # max freq in vector
 
     # Input Layer
     print("Mode:", mode)
-    input_layer = tf.reshape(features, [-1, HEIGHT, WIDTH, 1], name="image_input")
+    input_layer = tf.reshape(image, [-1, HEIGHT, WIDTH, 1], name="image_input")
 
     # High level feature extractor (function)
     feature_extractor = params['feature_extractor']
@@ -78,7 +82,7 @@ def model(features, labels, mode, params):
             max_outputs=18
         )
 
-    # Calculate Loss (for both TRAIN and EVAL modes)
+    # Calculate classification Loss (for both TRAIN and EVAL modes)
     loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
 
     # L2 Regularization for logits
