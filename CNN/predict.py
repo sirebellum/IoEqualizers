@@ -59,7 +59,7 @@ def wav_player(filename, queue):
                     channels=f.getnchannels(),  
                     rate=f.getframerate(),  
                     output=True)  
-                   
+    
                     
     # Begin playback
     data = f.readframes(chunk)
@@ -86,6 +86,8 @@ if __name__ == "__main__":
     from PIL import Image
     import matplotlib.pyplot as plt
     import struct
+    import png
+    import io
     
     # Signal processing signal
     input = "test_feedback.wav"
@@ -117,7 +119,7 @@ if __name__ == "__main__":
             fft += struct.unpack('1024h', execute_queue.get())
         
         fft = np.asarray(fft, dtype=np.int16)
-        fft = ap.convertWav(fft, sample_rate=sample_rate)
+        fft = ap.convertWav(fft, sample_rate=sample_rate)[0]
         
         # Volume thresholding
         threshold = 2000
@@ -127,7 +129,10 @@ if __name__ == "__main__":
         if fft_volume < threshold or fft_volume == float('inf'):
             continue # Don't even process
         
+        # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
+        png_image = io.BytesIO()
+        png.from_array(image, 'L', info={'compression': 0}).save(png_image)
         image = np.asarray(image, dtype=np.float32)
         image *= 1/255.0
         
