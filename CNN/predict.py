@@ -21,16 +21,40 @@ model_name = args.model_id
 signature_name = 'predict_class'
 url = "http://"+server+"/v1/models/"+model_name+":predict"
 
+# Function to compress np image into png
+# returns base64 encoded string
+def create_png(image, c=0):
+    import png
+    import io
+    import base64
+    
+    # Write to file in memory
+    png_image = io.BytesIO()
+    png.from_array(image, 'L', info={'compression': c}).save(png_image)
+    png_image.seek(0)
+    
+    # Base64 encode for transmission
+    png_image = base64.b64encode(png_image.read()).decode("utf-8") 
+    
+    return png_image
+
 # Function to create instance json for multiple images
 # Input image is of type float32 [0, 1]
 def create_json(images, signature_name):
 
     # Assume size is the same
-    height = images[0].shape[0]
-    width = images[0].shape[1]
-    # Flatten for transmission
-    images = [image.flatten().tolist() for image in images]
-
+    height = ap.HEIGHT
+    width = ap.WIDTH
+    
+    # Take either numpy arrays or base64 encoded pngs
+    if type(images[0]) == 'str':
+        # Add b64 flags
+        images = ["{ \"b64\": " + image + "\"" for image in images]
+        
+    elif type(images[0]) == np.ndarray:
+        # Flatten for transmission
+        images = [image.flatten().tolist() for image in images]
+    
     # Top level request Json with list of instances
     request_dict = {"instances": [], "signature_name": signature_name}
     
@@ -47,6 +71,8 @@ def create_json(images, signature_name):
 # Function ment to play wav in other thread, outputing whenever a certain
 #   number of frames are processed
 def wav_player(filename, queue):
+    import pyaudio  
+    import wave
 
     # Audio playback setup
     f = wave.open(filename,"rb")  
@@ -59,7 +85,7 @@ def wav_player(filename, queue):
                     channels=f.getnchannels(),  
                     rate=f.getframerate(),  
                     output=True)  
-                   
+    
                     
     # Begin playback
     data = f.readframes(chunk)
@@ -81,8 +107,6 @@ def wav_player(filename, queue):
 
 if __name__ == "__main__":
     import scipy.io.wavfile
-    import pyaudio  
-    import wave  
     from PIL import Image
     import matplotlib.pyplot as plt
     import struct
@@ -117,7 +141,7 @@ if __name__ == "__main__":
             fft += struct.unpack('1024h', execute_queue.get())
         
         fft = np.asarray(fft, dtype=np.int16)
-        fft = ap.convertWav(fft, sample_rate=sample_rate)
+        fft = ap.convertWav(fft, sample_rate=sample_rate)[0]
         
         # Volume thresholding
         threshold = 2000
@@ -127,12 +151,14 @@ if __name__ == "__main__":
         if fft_volume < threshold or fft_volume == float('inf'):
             continue # Don't even process
         
+        # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
-        image = np.asarray(image, dtype=np.float32)
-        image *= 1/255.0
+        png_image = create_png(image)
+        #image = np.asarray(image, dtype=np.float32)
+        #image *= 1/255.0
         
         # Turn into json request
-        json_request = create_json([image], signature_name)
+        json_request = create_json([png_image], signature_name)
         
         # Get predictions
         output = requests.post(url, data=json_request)
