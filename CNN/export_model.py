@@ -32,11 +32,7 @@ def main(_):
         # placeholder for receiving the serialized input image
         serialized_tf_example = tf.placeholder(tf.string, name='tf_example')
         feature_configs = {'x': tf.FixedLenFeature(shape=[], dtype=tf.string), }
-        tf_example = tf.parse_single_example(serialized_tf_example, feature_configs)
-        
-        # convert png to float tensor
-        tf_example['x'] = tf.image.decode_png(tf_example['x'])
-        tf_example['x'] = tf.image.convert_image_dtype(tf_example['x'], dtype=tf.float32)
+        tf_example = tf.parse_example(serialized_tf_example, feature_configs)
         
         # reshape the input image to its original dimension
         #tf_example['x'] = tf.reshape(tf_example['x'], (1, image_height_tensor, image_width_tensor, 1))

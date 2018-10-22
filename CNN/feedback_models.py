@@ -48,6 +48,13 @@ def model(features, labels, mode, params):
     image = features['image']
     freqs = features['freqs'] # frequency vector
     max = features['max']     # max freq in vector
+    
+    # PNG processing
+    if image.dtype == tf.string:
+        image = tf.map_fn(tf.decode_base64, image)
+        image = tf.map_fn(tf.image.decode_png, image, dtype=tf.uint8)
+        image = tf.cast(image, dtype=tf.float32)
+        image /= 255.0
 
     # Input Layer
     print("Mode:", mode)
