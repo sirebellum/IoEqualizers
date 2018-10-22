@@ -38,6 +38,8 @@ class feedback:
             with open(file, mode='r') as labelfile:
                 for line in labelfile:
                     entry = line.strip("\n").split(",")
+                    entry = [x for x in entry if x != ''] # Strip trailing fields
+                    
                     entry.reverse() # to pop off first items
                     self.addInstance(wav=os.path.join(self.wav_dir, entry.pop()),
                                      beg=float(entry.pop()),
@@ -55,10 +57,13 @@ class feedback:
         ### Ensure feedback durations
         delete = list()
         for x in range(0, self.num_instances):
+        
             # Chop up long instances
             if self.dataset["dur"][x] > self.instance_size:
                 delete.append(x) # Delete offending instance later
                 num_splits = int(self.dataset["dur"][x] / self.instance_size)+1
+                
+                # Split up single instance
                 for i in range(0, num_splits):
                     new_beginning = self.dataset['beg'][x]+i*self.instance_size
                     self.addInstance(wav=self.dataset['wav'][x],
@@ -66,6 +71,7 @@ class feedback:
                                      dur=self.instance_size,
                                      fb=1,
                                      freqs=self.dataset['freqs'][x])
+                                     
             # Pad short instances
             if self.dataset["dur"][x] < self.instance_size:
                 self.dataset["dur"][x] = self.instance_size
@@ -228,7 +234,7 @@ class feedback:
         # Final access stats
         self.update_stats()
         print( "{} instances of feedback, {} of non-feedback"\
-                    .format(sum(self.dataset['fb']), self.num_instances) )
+                    .format(sum(self.dataset['fb']), self.num_instances-sum(self.dataset['fb'])) )
         
         
         ### Shuffle everything
