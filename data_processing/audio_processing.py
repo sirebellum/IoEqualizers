@@ -283,10 +283,24 @@ def freqs_to_idx(freqs, bins):
 
     idxs = list()
     for freq, bin in zip(freqs, bins):
+    
+        # Don't operate on empty freqs
+        if len(freq) == 0:
+            idxs.append(np.asarray([]))
+            continue
+    
+        # Get rid of frequencies larger than fft capacity
+        freq = np.asarray(freq)
+        edge_freq = bin[-1] + (bin[-1] - bin[-2])
+        freq = freq[freq <= edge_freq]
+        
         # Figure out where frequencies fit into bins in order
         idx = np.searchsorted(bin, freq, side="left")
-        # Adjust indices if freq is closer to lower index
+        idx[idx == HEIGHT] = HEIGHT-1
+        
+        # Adjust indices if freq is closer to lower index/freq
         idx = idx - (np.abs(freq - bin[idx-1]) < np.abs(freq - bin[idx]))
+        
         idxs.append(idx)
     
     return idxs
@@ -300,8 +314,10 @@ def idx_to_vector(indices, bins):
     instances = len(indices)
     num_freqs = bins.shape[1]
     vectors = np.zeros((instances, num_freqs), dtype=np.int64)
+    
     # Set 1s
     for vector, index in zip(vectors, indices):
+        if len(index) == 0: continue
         vector[index] = 1
     
     return vectors
@@ -357,11 +373,11 @@ if __name__ == "__main__":
     
     # Print out ffts with frequencies highlighted
     instances = list( zip(images, idxs) )
-    for instance in instances:
+    for image, idx in instances:
         # Adjust bins to match image indices
-        indices = np.asarray(instance[1])
-        indices = len(instance[0]) - indices
+        indices = np.asarray(idx)
+        indices = len(image) - indices
         # Draw on first couple pixels of freq
-        instance[0][indices, 0:5] = 255
-        plt.imshow(instance[0])
-        plt.draw(); plt.pause(0.001); input()
+        image[indices, 0:5] = 255
+        plt.imshow(image)
+        plt.draw(); plt.pause(0.001); input(dataset["frequencies"])

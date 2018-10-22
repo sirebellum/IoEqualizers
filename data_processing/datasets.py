@@ -341,9 +341,9 @@ class feedback:
                 # include sample rates since it's important
                 data['sample_rate'] = sample_rates
                 
-                if self.testing: # Return timestampds for data cleaning
-                    data['wav'] = filenames
-                    data['beg'] = beg
+            if self.testing: # Return timestampds for data cleaning
+                data['wav'] = filenames
+                data['beg'] = beg
 
             # Increment
             self.num_accessed += num
@@ -564,15 +564,20 @@ def main():
                 #indices = np.asarray(indices)
                 indices = ap.vector_to_idx( # add dim to match what function is expecting
                             [feedbacks['freqs_vector'][x]],
-                            np.expand_dims(bins,0))
+                            np.expand_dims(bins,0)) # make [bins]-like
                 # Adjust bins to match image indices
                 indices = len(ffts[x]) - indices[0]
                 # Draw
                 if len(indices) != 0:
-                    ffts[x][indices] = 255
+                    ffts[x][indices, 0:5] = 255
                 # Display FFTs
                 plt.imshow(ffts[x])
                 plt.draw(); plt.pause(0.001)
+                
+                # Print wav files
+                wav_file = feedbacks['wav'][x].split('/')[-1]
+                beg = str(feedbacks['beg'][x])
+                input(wav_file+" "+beg)
                 
                 # Play audio
                 if unprocessed:
