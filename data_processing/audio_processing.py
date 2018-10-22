@@ -273,7 +273,7 @@ def histogram(x, name, nbins=10):
     # Log y scale
     plt.yscale('log', nonposy='clip')
     
-    plt.show()
+    plt.draw(); plt.pause(0.001)
     print(bins)
 
 # Frequencies get converted to closest bin indices in bins.

@@ -81,6 +81,27 @@ class feedback:
         
         # New access stats
         self.update_stats()
+                    
+                    
+        ### Create jittered duplicates of feedback
+        for x in range(0, self.num_instances):
+            if self.dataset['fb'][x] == 1:
+                right_jitter = self.dataset['beg'][x]+0.25*self.instance_size
+                self.addInstance(wav=self.dataset['wav'][x],
+                                 beg=right_jitter,
+                                 dur=self.instance_size,
+                                 fb=1,
+                                 freqs=self.dataset['freqs'][x])
+                                 
+                left_jitter = self.dataset['beg'][x]-0.25*self.instance_size
+                self.addInstance(wav=self.dataset['wav'][x],
+                                 beg=left_jitter,
+                                 dur=self.instance_size,
+                                 fb=1,
+                                 freqs=self.dataset['freqs'][x])
+        # New access stats
+        self.update_stats()
+        
         
         ### Non-feedback samples
         if self_sample:
@@ -209,27 +230,6 @@ class feedback:
             elif fft_time_samples < WIDTH:  delete.append(x)
         # Delete silent instances
         self.delInstance(*delete)
-            
-        # New access stats
-        self.update_stats()
-                    
-                    
-        ### Create jittered duplicates of feedback
-        for x in range(0, self.num_instances):
-            if self.dataset['fb'][x] == 1:
-                right_jitter = self.dataset['beg'][x]+0.25*self.instance_size
-                self.addInstance(wav=self.dataset['wav'][x],
-                                 beg=right_jitter,
-                                 dur=self.instance_size,
-                                 fb=1,
-                                 freqs=self.dataset['freqs'][x])
-                                 
-                left_jitter = self.dataset['beg'][x]-0.25*self.instance_size
-                self.addInstance(wav=self.dataset['wav'][x],
-                                 beg=left_jitter,
-                                 dur=self.instance_size,
-                                 fb=1,
-                                 freqs=self.dataset['freqs'][x])
         
         # Final access stats
         self.update_stats()
@@ -541,7 +541,7 @@ def main():
     # Feedback data
     feedback_files = glob.glob("feedback/*.csv")
     dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = False # Return wav or not
+    unprocessed = True # Return wav or not
     print ("Getting feedback data...")
     feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
     
@@ -561,7 +561,7 @@ def main():
     # Play/show
     while feedbacks is not None:
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
-            if feedbacks['fb'][x] == 1:
+            if feedbacks['fb'][x] == 0:
                 
                 # Calc freq bins
                 bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
@@ -583,7 +583,7 @@ def main():
                 # Print wav files
                 wav_file = feedbacks['wav'][x].split('/')[-1]
                 beg = str(feedbacks['beg'][x])
-                input(wav_file+" "+beg)
+                print(wav_file+" "+beg)
                 
                 # Play audio
                 if unprocessed:
@@ -616,7 +616,6 @@ def main():
                     # Play audio and wait for finish
                     filename_queue.put("temp.wav")
                     done = queuedone.get()
-                    
         
         # Get next batch
         feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
