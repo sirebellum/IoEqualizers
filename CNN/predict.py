@@ -34,7 +34,10 @@ def create_png(image, c=0):
     png_image.seek(0)
     
     # Base64 encode for transmission
-    png_image = base64.b64encode(png_image.read()).decode("utf-8") 
+    # Alternate characters required by tf
+    png_image = base64.b64encode(
+                    png_image.read(),
+                    altchars=b"-_").decode("utf-8") 
     
     return png_image
 
@@ -45,13 +48,8 @@ def create_json(images, signature_name):
     # Assume size is the same
     height = ap.HEIGHT
     width = ap.WIDTH
-    
-    # Take either numpy arrays or base64 encoded pngs
-    if type(images[0]) == 'str':
-        # Add b64 flags
-        images = ["{ \"b64\": " + image + "\"" for image in images]
         
-    elif type(images[0]) == np.ndarray:
+    if isinstance(images[0], np.ndarray):
         # Flatten for transmission
         images = [image.flatten().tolist() for image in images]
     
@@ -117,9 +115,6 @@ if __name__ == "__main__":
     
     # Get ffts
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-    #ffts = [ap.convertWav(signal[0+x:x+instance_samples], sample_rate=sample_rate) \
-    #            for x in range(0, len(signal), instance_samples)]
-    #ffts.reverse()
     
     # Launch wav reader with indicator queue
     execute_queue = Queue()
@@ -154,8 +149,8 @@ if __name__ == "__main__":
         # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
         png_image = create_png(image)
-        #image = np.asarray(image, dtype=np.float32)
-        #image *= 1/255.0
+        image = np.asarray(image, dtype=np.float32)
+        image *= 1/255.0
         
         # Turn into json request
         json_request = create_json([png_image], signature_name)
@@ -164,8 +159,8 @@ if __name__ == "__main__":
         output = requests.post(url, data=json_request)
         try:
             predictions = output.json()['predictions']
-        except KeyError:
-            print( output.json() )
+        except:
+            print( output.text )
             exit()
             
         if predictions[0] == 1:
