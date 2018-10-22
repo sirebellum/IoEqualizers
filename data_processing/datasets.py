@@ -86,30 +86,52 @@ class feedback:
         ### Create jittered duplicates of feedback
         for x in range(0, self.num_instances):
             if self.dataset['fb'][x] == 1:
-                right_jitter = self.dataset['beg'][x]+0.25*self.instance_size
-                self.addInstance(wav=self.dataset['wav'][x],
-                                 beg=right_jitter,
-                                 dur=self.instance_size,
-                                 fb=1,
-                                 freqs=self.dataset['freqs'][x])
-                                 
-                left_jitter = self.dataset['beg'][x]-0.25*self.instance_size
-                self.addInstance(wav=self.dataset['wav'][x],
-                                 beg=left_jitter,
-                                 dur=self.instance_size,
-                                 fb=1,
-                                 freqs=self.dataset['freqs'][x])
+                jitters = [-0.2, -0.1, 0.1, 0.2]
+                for jitter in jitters:
+                    jitter_beg = self.dataset['beg'][x]+jitter*self.instance_size
+                    self.addInstance(wav=self.dataset['wav'][x],
+                                     beg=jitter_beg,
+                                     dur=self.instance_size,
+                                     fb=1,
+                                     freqs=self.dataset['freqs'][x])
         # New access stats
         self.update_stats()
+        
+        # Gather wav files into one dictionary instead of re-reading
+        wavs = list( set(self.dataset['wav']) )
+        self.wav_dict = {} # WAV Filename: sample_rate, audio
+        self.addWavs(wavs)
+        
+        
+        ### Create bank of silence for adding to feedback later
+        wavs = list( set(self.dataset['wav']) )
+        self.silences = list()
+        for wav in wavs:
+            sample_rate, signal = self.wav_dict[wav]
+        
+            # Format input to get all samples from wavs
+            input = [sample_rate, signal, self.instance_size, 0, [], wav]
+            samples = ap.slice_audio(input)
+            
+            # Append silent instances to silence bank
+            for sample in samples:
+                silence = ap.convertWav(
+                             signal,
+                             sample_rate=sample_rate,
+                             crop_beg=sample[0],
+                             crop_end=sample[0]+sample[1],
+                             convert=False
+                         )
+                volume = sum(silence)/len(silence)
+                if volume <= 10:
+                    self.silences.append(silence)
+        random.shuffle(self.silences)
         
         
         ### Non-feedback samples
         if self_sample:
         
             ### Gather non-feedback wav files
-            wavs = list( set(self.dataset['wav']) )
-            #wavs = [os.path.join(self.wav_dir, wav) for wav in wavs]
-            
             # Add spoken/sung songs
             wav_wildcard = self.wav_dir+"/nus-smc-corpus/**/**/*.wav"
             wavs += glob.glob(wav_wildcard, recursive=True)
@@ -118,30 +140,8 @@ class feedback:
             wav_wildcard = self.wav_dir+"/FSDD/*.wav"
             wavs += glob.glob(wav_wildcard)
             
-            # Gather wav files into one dictionary instead of re-reading
-            self.wav_dict = {} # WAV Filename: sample_rate, audio
-            for filename in set(wavs):
-                # Check for unsupported bit-depth
-                try:
-                    self.wav_dict[filename] = list(scipy.io.wavfile.read(filename))
-                except ValueError:
-                    continue # Skip wav
-                    
-                # Average to 1 channel
-                if self.wav_dict[filename][1].ndim == 2:
-                    dtype = self.wav_dict[filename][1].dtype
-                    average = \
-                        self.wav_dict[filename][1][:, 0]/2 + self.wav_dict[filename][1][:, 1]/2
-                    self.wav_dict[filename][1] = \
-                        np.array(average, dtype=dtype)
-                        
-                # Convert sample rate
-                ref_rate = REF_RATE
-                if self.wav_dict[filename][0] != ref_rate:
-                    self.wav_dict[filename][1] = ap.convertSampleRate(self.wav_dict[filename][1],
-                                                                   self.wav_dict[filename][0],
-                                                                   ref_rate)
-                    self.wav_dict[filename][0] = ref_rate
+            # Add non-feedback files to dict
+            self.addWavs(wavs)
             
             
             ### Greedily sample areas of wavs above volume threshold
@@ -189,6 +189,7 @@ class feedback:
             # New access stats
             self.update_stats()
         
+        
         ### Plot histogram of feedback magnitudes if testing
         if self.testing == True:
             volumes = list()
@@ -208,6 +209,7 @@ class feedback:
                     if volume == float("inf"): volume = -1
                     volumes.append( volume )
             ap.histogram(volumes, "volumes", nbins=20)
+        
         
         ### Mark silent instances, get rid of short instances
         delete = list()
@@ -254,6 +256,33 @@ class feedback:
                 self.dataset[key] = temp.pop()
     
     
+    # Add signal and sample info to global dictioanary
+    def addWavs(self, wavs):
+    
+        for filename in set(wavs):
+            # Check for unsupported bit-depth
+            try:
+                self.wav_dict[filename] = list(scipy.io.wavfile.read(filename))
+            except ValueError:
+                continue # Skip wav
+                
+            # Average to 1 channel
+            if self.wav_dict[filename][1].ndim == 2:
+                dtype = self.wav_dict[filename][1].dtype
+                average = \
+                    self.wav_dict[filename][1][:, 0]/2 + self.wav_dict[filename][1][:, 1]/2
+                self.wav_dict[filename][1] = \
+                    np.array(average, dtype=dtype)
+                    
+            # Convert sample rate
+            ref_rate = REF_RATE
+            if self.wav_dict[filename][0] != ref_rate:
+                self.wav_dict[filename][1] = ap.convertSampleRate(
+                                                self.wav_dict[filename][1],
+                                                self.wav_dict[filename][0],
+                                                ref_rate)
+                self.wav_dict[filename][0] = ref_rate
+    
     # Updates num_instances while checking for equal instances in each column
     def update_stats(self):
         
@@ -269,7 +298,7 @@ class feedback:
         # Update num_instances if we good
         self.num_instances = count
     
-    #   Add instance to internal instance dataset while checking
+    # Add instance to internal instance dataset while checking
     # for validity of column titles
     def addInstance(self, **kwargs):
     
@@ -299,11 +328,12 @@ class feedback:
             # Storage dictionary
             data = {}
             
+            ### Labels setup
             upper = self.num_accessed + num # upper access index
 
             # Get relevant filenames and prepend full path
             filenames = self.dataset['wav'][self.num_accessed:upper]
-            # Get relevant chunks
+            # Get relevant labels
             beg = self.dataset['beg'][self.num_accessed:upper]
             dur = self.dataset['dur'][self.num_accessed:upper]
             freqs = self.dataset['freqs'][self.num_accessed:upper]
@@ -313,7 +343,8 @@ class feedback:
                 fb = self.dataset['fb'][self.num_accessed:upper]
                 data['fb'] = fb
             
-            # Process feedback chunks
+            
+            ### Process feedback chunks
             sample_rates = [self.wav_dict[filename][0] for filename in filenames]
             ffts = [ap.convertWav(self.wav_dict[filenames[x]][1],
                                   sample_rate=sample_rates[x],
@@ -334,7 +365,9 @@ class feedback:
             idxs = ap.freqs_to_idx(freqs, ref_bins)
             data['freqs_vector'] = ap.idx_to_vector(idxs, ref_bins)
             
-            if unprocessed: # Get raw audio
+            
+            ### Get raw audio
+            if unprocessed:
                 sample_rates = [self.wav_dict[filename][0] for filename in filenames]
                 audios = [ap.convertWav(self.wav_dict[filenames[x]][1],
                                      sample_rate=sample_rates[x],
@@ -346,8 +379,10 @@ class feedback:
                 data['audio'] = audios
                 # include sample rates since it's important
                 data['sample_rate'] = sample_rates
+            
                 
-            if self.testing: # Return timestampds for data cleaning
+            # Return timestamps for data cleaning
+            if self.testing:
                 data['wav'] = filenames
                 data['beg'] = beg
 
@@ -561,7 +596,7 @@ def main():
     # Play/show
     while feedbacks is not None:
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
-            if feedbacks['fb'][x] == 0:
+            if feedbacks['fb'][x] == 1:
                 
                 # Calc freq bins
                 bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
