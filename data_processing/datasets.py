@@ -332,7 +332,7 @@ class feedback:
                 continue
         
             # Generate random fraction of noise to add
-            noise_frac = float( np.random.randint(90, 100)/100.0 )
+            noise_frac = float( np.random.randint(5, 9)/10.0 )
             # Get noise
             noise = self.silences.pop() * noise_frac
             
