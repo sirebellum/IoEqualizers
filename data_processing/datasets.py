@@ -122,7 +122,7 @@ class feedback:
                              crop_end=sample[0]+sample[1],
                              convert=False
                          )
-                volume = sum(silence)/len(silence)
+                volume = sum(abs(silence))/len(silence)
                 if volume <= 10:
                     self.silences.append(silence)
         random.shuffle(self.silences)
@@ -189,7 +189,7 @@ class feedback:
             # New access stats
             self.update_stats()
         
-        
+        '''
         ### Plot histogram of feedback magnitudes if testing
         if self.testing == True:
             volumes = list()
@@ -209,7 +209,7 @@ class feedback:
                     if volume == float("inf"): volume = -1
                     volumes.append( volume )
             ap.histogram(volumes, "volumes", nbins=20)
-        
+        '''
         
         ### Mark silent instances, get rid of short instances
         delete = list()
@@ -254,6 +254,7 @@ class feedback:
         for key in self.dataset:
             if len(self.dataset[key]) != 0:
                 self.dataset[key] = temp.pop()
+    # End init
     
     
     # Add signal and sample info to global dictioanary
@@ -317,7 +318,34 @@ class feedback:
             for key in self.dataset:
                 if len(self.dataset[key]) != 0:
                     del self.dataset[key][j]
+    
+    # Adds sample of silence (noise) to feedback
+    def addNoise(self, instances, labels):
+    
+        # Process all fb in input
+        noisy_instances = list()
+        for instance, label in zip(instances, labels):
+            
+            # Don't operate on non-feedback
+            if label == 0:
+                noisy_instances.append(instance)
+                continue
         
+            # Generate random fraction of noise to add
+            noise_frac = float( np.random.randint(90, 100)/100.0 )
+            # Get noise
+            noise = self.silences.pop() * noise_frac
+            
+            # Match feedback and noise lengths
+            instance = instance[0:len(noise)]
+            noise = noise[0:len(instance)]
+            
+            # Add noise
+            noisy_instances.append( (1-noise_frac)*instance + noise )
+            noisy_instances[-1] = np.asarray(noisy_instances[-1], dtype=np.int16)
+            
+        return noisy_instances
+    
     # Return num instances
     # If unprocessed is True, function returns raw audio data
     def returnInstance(self, num, unprocessed=False):
@@ -331,12 +359,13 @@ class feedback:
             ### Labels setup
             upper = self.num_accessed + num # upper access index
 
-            # Get relevant filenames and prepend full path
-            filenames = self.dataset['wav'][self.num_accessed:upper]
             # Get relevant labels
+            filenames = self.dataset['wav'][self.num_accessed:upper]
             beg = self.dataset['beg'][self.num_accessed:upper]
             dur = self.dataset['dur'][self.num_accessed:upper]
             freqs = self.dataset['freqs'][self.num_accessed:upper]
+            
+            upper_index = len(filenames) # different than upper for small batch
             
             fb = None # self_sample
             if 'fb' in self.dataset.keys():
@@ -350,7 +379,7 @@ class feedback:
                                   sample_rate=sample_rates[x],
                                   crop_beg=beg[x],
                                   crop_end=beg[x]+dur[x]) \
-                        for x in range(0, len(filenames))]
+                        for x in range(0, upper_index)]
             ffts, ref_bins = list( zip(*ffts) ) # Unpack ffts and bins
             
             # Convert to image and crop
@@ -365,21 +394,36 @@ class feedback:
             idxs = ap.freqs_to_idx(freqs, ref_bins)
             data['freqs_vector'] = ap.idx_to_vector(idxs, ref_bins)
             
+            # Get raw audio
+            audios = [ap.convertWav(self.wav_dict[filenames[x]][1],
+                                 sample_rate=sample_rates[x],
+                                 crop_beg=beg[x],
+                                 crop_end=beg[x]+dur[x],
+                                 convert=False) \
+                        for x in range(0, upper_index)]
+                        
+                        
+            ### Add noise to half of instances
+            half_index = int( len(filenames)/2 )
+            noisy_audio = self.addNoise(audios[half_index:upper_index],
+                                        data['fb'][half_index:upper_index])
+            audios[half_index:upper_index] = noisy_audio
             
-            ### Get raw audio
+            # Convert to ffts
+            noisy_ffts = [ap.convertWav(audios[x],
+                                        sample_rate=sample_rates[x])[0] \
+                            for x in range(half_index, upper_index)]
+            
+            # Turn into images
+            noisy_images = [ap.plotSpectrumBW(fft) for fft in noisy_ffts]
+            data['fft'][half_index:upper_index] = noisy_images
+            
+            
+            # Add raw audio info to output if asked for
             if unprocessed:
-                sample_rates = [self.wav_dict[filename][0] for filename in filenames]
-                audios = [ap.convertWav(self.wav_dict[filenames[x]][1],
-                                     sample_rate=sample_rates[x],
-                                     crop_beg=beg[x],
-                                     crop_end=beg[x]+dur[x],
-                                     convert=False) \
-                            for x in range(0, len(filenames))]
-                
                 data['audio'] = audios
                 # include sample rates since it's important
                 data['sample_rate'] = sample_rates
-            
                 
             # Return timestamps for data cleaning
             if self.testing:
@@ -394,9 +438,161 @@ class feedback:
         # If no more instances to access
         else:
             return None
+    
+### MAIN THREAD ###
+def main():
+    from PIL import Image
+    import matplotlib.pyplot as plt
+    '''
+    # nsynth dataset
+    dir = "nsynth/nsynth-test/"
+    dataset_test = nsynth(dir, fb=True)
+    print ("Getting nsynth data...")
+    batch = dataset_test.returnInstance(100)
+    images = [ plotSpectrumBW(image) for image in batch['fft'] ]
+
+    #import ipdb; ipdb.set_trace()
+    for x in range(0, len(images)):
+      if batch['fb'][x] == 1:
+        img = Image.fromarray(images[x], 'L')
+        img.show()
+        
+    '''
+    # Feedback data
+    feedback_files = glob.glob("feedback/*.csv")
+    dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
+    unprocessed = True # Return wav or not
+    print ("Getting feedback data...")
+    feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
+    
+    ffts = feedbacks['fft']
+    if unprocessed: # Set up audio output
+        from multiprocessing import Queue, Process
+        
+        # Launch wav reader with indicator queue
+        filename_queue = Queue()
+        queuedone = Queue()
+        wav = Process(target=wav_player,
+                      args=[filename_queue,
+                            queuedone],
+                      daemon = True)
+        wav.start()
+
+    # Play/show
+    while feedbacks is not None:
+        for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
+            if feedbacks['fb'][x] == 1:
+                
+                # Calc freq bins
+                bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
+                bins = np.asarray(bins)
+                #indices = ap.freq_to_idx(feedbacks['freqs'][x], bins)
+                #indices = np.asarray(indices)
+                indices = ap.vector_to_idx( # add dim to match what function is expecting
+                            [feedbacks['freqs_vector'][x]],
+                            np.expand_dims(bins,0)) # make [bins]-like
+                # Adjust bins to match image indices
+                indices = len(ffts[x]) - indices[0]
+                # Draw
+                if len(indices) != 0:
+                    ffts[x][indices, 0:5] = 255
+                # Display FFTs
+                plt.imshow(ffts[x])
+                plt.draw(); plt.pause(0.1)
+                
+                # Print wav files
+                wav_file = feedbacks['wav'][x].split('/')[-1]
+                beg = str(feedbacks['beg'][x])
+                print(wav_file+" "+beg)
+                
+                ### Play audio
+                if unprocessed:
+                    instance = feedbacks['audio'][x]
+                    if feedbacks['sample_rate'][x] != REF_RATE:
+                        # Convert fb sample rate to match instances's
+                        instance = audioop.ratecv(
+                            feedbacks['audio'][x],          # input
+                            feedbacks['audio'][x].itemsize, # bit depth (bytes)
+                            1, feedbacks['sample_rate'][x],       # channels, inrate
+                            REF_RATE,             # outrate
+                            None)                 # state..?
+                        instance = np.frombuffer(instance[0], dtype=np.int16)
+                        
+                    # Write to temp wav file
+                    scipy.io.wavfile.write('temp.wav', REF_RATE, instance)
+                    
+                    # Printouts per sample
+                    #print(feedbacks['wav'][x], feedbacks['beg'][x])
+                    time_amplitude = sum(abs(instance))/len(instance)
+                    
+                    if float("-inf") in ffts[x] or float("+inf") in ffts[x]:
+                        print("inf")
+                    else:
+                        fft_time_samples = len(ffts[x][0])
+                        total_fft_volume = sum(sum(abs(ffts[x])))
+                        print(int(total_fft_volume/fft_time_samples), # FFT Volume
+                              int(time_amplitude))                    # Time Volume
+                    
+                    # Play audio and wait for finish
+                    filename_queue.put("temp.wav")
+                    done = queuedone.get()
+        
+        # Get next batch
+        feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
+        ffts = feedbacks['fft']
+    
+    # End playback
+    filename_queue.put(None)
+
+# Function ment to play wav in other thread
+def wav_player(queue, queueout):
+    import wave
+    import pyaudio
+    filename = queue.get()
+    
+    # Audio playback setup
+    f = wave.open(filename,"rb")
+    
+    #define stream chunk   
+    chunk = 1024
+    silence = chr(0)*chunk*2
+    
+    # Open pyaudio stream
+    p = pyaudio.PyAudio()  
+    #open stream  
+    stream = p.open(format=p.get_format_from_width(f.getsampwidth()),  
+                    channels=f.getnchannels(),  
+                    rate=f.getframerate(),  
+                    output=True)
+    
+    while filename is not None:
+        # Begin playback
+        data = f.readframes(chunk)
+        while data:
+            stream.write(data)
+            data = f.readframes(chunk) 
             
-            
-# Class for accessing files in the nsynth dataset
+        # Indicate finished playing
+        queueout.put(1)
+
+        # Get next file
+        filename = None
+        while filename is None:
+            try: filename = queue.get(block=False)
+            except:
+                stream.write(silence)
+                filename = None
+        
+        f = wave.open(filename,"rb")
+
+    #stop stream  
+    stream.stop_stream()
+    stream.close()
+    #close PyAudio  
+    p.terminate()
+
+
+### Class for accessing files in the nsynth dataset
 class nsynth:
 
     def __init__(self, directory, fb=False):
@@ -554,157 +750,6 @@ class nsynth:
             
         else: return None
         '''
-    
-def main():
-    from PIL import Image
-    import matplotlib.pyplot as plt
-    '''
-    # nsynth dataset
-    dir = "nsynth/nsynth-test/"
-    dataset_test = nsynth(dir, fb=True)
-    print ("Getting nsynth data...")
-    batch = dataset_test.returnInstance(100)
-    images = [ plotSpectrumBW(image) for image in batch['fft'] ]
-
-    #import ipdb; ipdb.set_trace()
-    for x in range(0, len(images)):
-      if batch['fb'][x] == 1:
-        img = Image.fromarray(images[x], 'L')
-        img.show()
-        
-    '''
-    # Feedback data
-    feedback_files = glob.glob("feedback/*.csv")
-    dataset_fb = feedback(feedback_files, self_sample=True, testing=True)
-    unprocessed = True # Return wav or not
-    print ("Getting feedback data...")
-    feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
-    
-    ffts = feedbacks['fft']
-    if unprocessed: # Set up audio output
-        from multiprocessing import Queue, Process
-        
-        # Launch wav reader with indicator queue
-        filename_queue = Queue()
-        queuedone = Queue()
-        wav = Process(target=wav_player,
-                      args=[filename_queue,
-                            queuedone],
-                      daemon = True)
-        wav.start()
-
-    # Play/show
-    while feedbacks is not None:
-        for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
-            if feedbacks['fb'][x] == 1:
-                
-                # Calc freq bins
-                bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
-                bins = np.asarray(bins)
-                #indices = ap.freq_to_idx(feedbacks['freqs'][x], bins)
-                #indices = np.asarray(indices)
-                indices = ap.vector_to_idx( # add dim to match what function is expecting
-                            [feedbacks['freqs_vector'][x]],
-                            np.expand_dims(bins,0)) # make [bins]-like
-                # Adjust bins to match image indices
-                indices = len(ffts[x]) - indices[0]
-                # Draw
-                if len(indices) != 0:
-                    ffts[x][indices, 0:5] = 255
-                # Display FFTs
-                plt.imshow(ffts[x])
-                plt.draw(); plt.pause(0.001)
-                
-                # Print wav files
-                wav_file = feedbacks['wav'][x].split('/')[-1]
-                beg = str(feedbacks['beg'][x])
-                print(wav_file+" "+beg)
-                
-                # Play audio
-                if unprocessed:
-                    instance = feedbacks['audio'][x]
-                    if feedbacks['sample_rate'][x] != REF_RATE:
-                        # Convert fb sample rate to match instances's
-                        instance = audioop.ratecv(
-                            feedbacks['audio'][x],          # input
-                            feedbacks['audio'][x].itemsize, # bit depth (bytes)
-                            1, feedbacks['sample_rate'][x],       # channels, inrate
-                            REF_RATE,             # outrate
-                            None)                 # state..?
-                        instance = np.frombuffer(instance[0], dtype=np.int16)
-                        
-                    # Write to temp wav file
-                    scipy.io.wavfile.write('temp.wav', REF_RATE, instance)
-                    
-                    # Printouts per sample
-                    #print(feedbacks['wav'][x], feedbacks['beg'][x])
-                    time_amplitude = sum(abs(instance))/len(instance)
-                    
-                    if float("-inf") in ffts[x] or float("+inf") in ffts[x]:
-                        print("inf")
-                    else:
-                        fft_time_samples = len(ffts[x][0])
-                        total_fft_volume = sum(sum(abs(ffts[x])))
-                        print(int(total_fft_volume/fft_time_samples), # FFT Volume
-                              int(time_amplitude))                    # Time Volume
-                    
-                    # Play audio and wait for finish
-                    filename_queue.put("temp.wav")
-                    done = queuedone.get()
-        
-        # Get next batch
-        feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
-        ffts = feedbacks['fft']
-    
-    # End playback
-    filename_queue.put(None)
-
-# Function ment to play wav in other thread
-def wav_player(queue, queueout):
-    import wave
-    import pyaudio
-    filename = queue.get()
-    
-    # Audio playback setup
-    f = wave.open(filename,"rb")
-    
-    #define stream chunk   
-    chunk = 1024
-    silence = chr(0)*chunk*2
-    
-    # Open pyaudio stream
-    p = pyaudio.PyAudio()  
-    #open stream  
-    stream = p.open(format=p.get_format_from_width(f.getsampwidth()),  
-                    channels=f.getnchannels(),  
-                    rate=f.getframerate(),  
-                    output=True)
-    
-    while filename is not None:
-        # Begin playback
-        data = f.readframes(chunk)
-        while data:
-            stream.write(data)
-            data = f.readframes(chunk) 
-            
-        # Indicate finished playing
-        queueout.put(1)
-
-        # Get next file
-        filename = None
-        while filename is None:
-            try: filename = queue.get(block=False)
-            except:
-                stream.write(silence)
-                filename = None
-        
-        f = wave.open(filename,"rb")
-
-    #stop stream  
-    stream.stop_stream()
-    stream.close()
-    #close PyAudio  
-    p.terminate()
 
 if __name__ == "__main__":
     main()
