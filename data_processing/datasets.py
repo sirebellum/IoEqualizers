@@ -327,7 +327,7 @@ class feedback:
         for instance, label in zip(instances, labels):
             
             # Don't operate on non-feedback
-            if label == 0:
+            if label == 0 or len(self.silences) == 0:
                 noisy_instances.append(instance)
                 continue
         
