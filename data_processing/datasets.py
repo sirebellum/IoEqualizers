@@ -331,17 +331,25 @@ class feedback:
                 noisy_instances.append(instance)
                 continue
         
-            # Generate random fraction of noise to add
-            noise_frac = float( np.random.randint(5, 9)/10.0 )
             # Get noise
-            noise = self.silences.pop() * noise_frac
+            noise = self.silences.pop()
             
             # Match feedback and noise lengths
             instance = instance[0:len(noise)]
             noise = noise[0:len(instance)]
+        
+            # Generate random suppression coefficient
+            suppress_coef = float( np.random.randint(50, 100)/100.0 )
+            # Suppress feedback volume
+            max_instance = np.abs(instance).max()
+            max_noise = np.abs(noise).max()
+            instance = np.interp(instance,
+                                 (-max_instance, max_instance),
+                                 (-max_noise*suppress_coef, max_noise*suppress_coef))
+            instance = instance.astype(np.int16)
             
             # Add noise
-            noisy_instances.append( (1-noise_frac)*instance + noise )
+            noisy_instances.append( instance + noise )
             noisy_instances[-1] = np.asarray(noisy_instances[-1], dtype=np.int16)
             
         return noisy_instances
