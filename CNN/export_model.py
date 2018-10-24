@@ -60,8 +60,11 @@ def main(_):
         saver = tf.train.Saver()
 
         # Restore variables from disk.
-        recent_model = tf.train.latest_checkpoint(pre_trained_model_dir)
-        saver.restore(sess, recent_model)
+        if 'model.ckpt' not in pre_trained_model_dir:
+            model_ckpt = tf.train.latest_checkpoint(pre_trained_model_dir)
+        else:
+            model_ckpt = pre_trained_model_dir
+        saver.restore(sess, model_ckpt)
         print("Model", model_name, "restored.")
 
         # Create SavedModelBuilder class
