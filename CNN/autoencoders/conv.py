@@ -62,28 +62,28 @@ def frequency_encoder(features, kernels, biases):
         6, (HEIGHT/2, 2), strides=(HEIGHT/4, 2),
         activation='relu', padding='same', name='conv1-',
         kernel_initializer=kernels.pop(),
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA/10),
         bias_initializer=biases.pop())(features)
     # Capture large frequency dependent features
     conv_freq2 = tf.layers.Conv2D(
         6, (HEIGHT/4, 2), strides=(HEIGHT/8, 2),
         activation='relu', padding='same', name='conv2-',
         kernel_initializer=kernels.pop(),
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA/10),
         bias_initializer=biases.pop())(features)
     # Capture small frequency dependent features
     conv_freq3 = tf.layers.Conv2D(
         6, (HEIGHT/8, 2), strides=(HEIGHT/16, 2),
         activation='relu', padding='same', name='conv3-',
         kernel_initializer=kernels.pop(),
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA/10),
         bias_initializer=biases.pop())(features)
     # Capture smallest frequency dependent features
     conv_freq4 = tf.layers.Conv2D(
         6, (HEIGHT/21, 2), strides=(HEIGHT/42, 2),
         activation='relu', padding='same', name='conv4-',
         kernel_initializer=kernels.pop(),
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA/10),
         bias_initializer=biases.pop())(features)
     
     # Pool out time scales
