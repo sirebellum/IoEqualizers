@@ -213,7 +213,7 @@ class feedback:
         
         ### Mark silent instances, get rid of short instances
         delete = list()
-        threshold = 2000 # FFT amp threshold
+        threshold = 0 # FFT amp threshold
         for x in range(0, self.num_instances):
             wav_path = os.path.join(self.wav_dir, self.dataset["wav"][x])
             beg = self.dataset["beg"][x]
@@ -339,7 +339,7 @@ class feedback:
             noise = noise[0:len(instance)]
         
             # Generate random suppression coefficient
-            suppress_coef = float( np.random.randint(50, 100)/100.0 )
+            suppress_coef = float( np.random.randint(90, 100)/100.0 )
             # Suppress feedback volume
             max_instance = np.abs(instance).max()
             max_noise = np.abs(noise).max()
@@ -411,20 +411,21 @@ class feedback:
                         for x in range(0, upper_index)]
                         
                         
-            ### Add noise to half of instances
-            half_index = int( len(filenames)/2 )
-            noisy_audio = self.addNoise(audios[half_index:upper_index],
-                                        data['fb'][half_index:upper_index])
-            audios[half_index:upper_index] = noisy_audio
+            ### Add noise to fraction of instances
+            fraction = float(1/3)
+            partial_index = int( len(filenames)*(1-fraction) )
+            noisy_audio = self.addNoise(audios[partial_index:upper_index],
+                                        data['fb'][partial_index:upper_index])
+            audios[partial_index:upper_index] = noisy_audio
             
             # Convert to ffts
             noisy_ffts = [ap.convertWav(audios[x],
                                         sample_rate=sample_rates[x])[0] \
-                            for x in range(half_index, upper_index)]
+                            for x in range(partial_index, upper_index)]
             
             # Turn into images
             noisy_images = [ap.plotSpectrumBW(fft) for fft in noisy_ffts]
-            data['fft'][half_index:upper_index] = noisy_images
+            data['fft'][partial_index:upper_index] = noisy_images
             
             
             # Add raw audio info to output if asked for
