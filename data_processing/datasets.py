@@ -228,7 +228,7 @@ class feedback:
             volume = total_fft_volume/fft_time_samples
             
             if volume < threshold:       delete.append(x)
-            elif volume == float("inf"): delete.append(x)
+            #elif volume == float("inf"): delete.append(x)
             elif fft_time_samples < WIDTH:  delete.append(x)
         # Delete silent instances
         self.delInstance(*delete)
