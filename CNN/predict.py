@@ -108,6 +108,7 @@ if __name__ == "__main__":
     from PIL import Image
     import matplotlib.pyplot as plt
     import struct
+    from timeit import default_timer as timer
     
     # Signal processing signal
     input = "test_feedback.wav"
@@ -148,7 +149,7 @@ if __name__ == "__main__":
         
         # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
-        png_image = create_png(image)
+        png_image = create_png(image, c=0)
         image = np.asarray(image, dtype=np.float32)
         image *= 1/255.0
         
@@ -156,7 +157,9 @@ if __name__ == "__main__":
         json_request = create_json([png_image], signature_name)
         
         # Get predictions
+        beg = timer()
         output = requests.post(url, data=json_request)
+        print(sys.getsizeof(json_request), timer()-beg)
         try:
             predictions = output.json()['predictions']
         except:
@@ -169,6 +172,6 @@ if __name__ == "__main__":
             image = np.pad(image, 2, mode='constant', constant_values=(1, 1))
             plt.imshow(image); plt.draw(); plt.pause(.001)
         else:
-            if counter%10 == 0: print("...")
+            #if counter%10 == 0: print("...")
             plt.imshow(image); plt.draw(); plt.pause(.001)
     
