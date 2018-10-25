@@ -89,7 +89,9 @@ def wav_player(filename, queue):
     data = f.readframes(chunk)
     while data:
         stream.write(data)
-        queue.put(data)
+        try:
+            queue.put(data, block=False)
+        except: pass
         data = f.readframes(chunk) 
 
 
@@ -118,7 +120,7 @@ if __name__ == "__main__":
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
     
     # Launch wav reader with indicator queue
-    execute_queue = Queue()
+    execute_queue = Queue(maxsize = 1)
     wav = Process(target=wav_player,
                   args=(input,
                         execute_queue),
