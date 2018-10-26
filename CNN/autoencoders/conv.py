@@ -159,16 +159,37 @@ def feature_encoder(features, kernels, biases):
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(conv2)
         
-    pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv3)
-    feature_map = pool1
+    #pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv3)
+    feature_map = conv3
     
     # If valid weights were loaded
     if restore:
         # Don't update layers
         tf.stop_gradient(conv1)
         tf.stop_gradient(conv2)
+        tf.stop_gradient(conv3)
     
     return feature_map
+    
+    
+# Create vector of frequencies where feedback is present
+def fb_vectorize(features, kernels, biases):
+
+    # Check for valid weights
+    restore = False
+    if kernels[0] is not None:
+        restore = True
+
+    _, height, width, depth = features.get_shape()
+    # Pool out time scale
+    feedback_vector = tf.layers.MaxPooling2D((1, width), (1, 1), padding='valid', name='feature_map-')(features)
+    
+    # If valid weights were loaded
+    if restore:
+        # Don't update layers
+        pass
+    
+    return feedback_vector
     
 # Standard 3x3 encoder
 def encode3x3(features, kernels, biases):

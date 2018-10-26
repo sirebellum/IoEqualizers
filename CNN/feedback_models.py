@@ -1,3 +1,6 @@
+import sys
+sys.path.append('../') # Top directory
+
 import tensorflow as tf
 from autoencoders import conv
 BETA = 0.005 # L2 Beta
@@ -12,10 +15,11 @@ NUMCLASSES = 2
 def FeedbackNet(input, weights, feature_extractor):
 
     # Get high level features
-    feedback_map = conv.encode(input, feature_extractor, weights=weights)
+    frequency_map = conv.encode(input, feature_extractor, weights=weights)
     
+    ### Feedback classification
     # Deepen to low level features
-    feature_map = conv.encode(feedback_map, conv.feature_encoder)
+    feature_map = conv.encode(frequency_map, conv.feature_encoder)
     
     # Post image of feature map
     feature_map0 = tf.slice(feature_map, [0, 0, 0, 0], [-1, -1, -1, 3])
@@ -26,12 +30,12 @@ def FeedbackNet(input, weights, feature_extractor):
         feature_image,
         max_outputs=18
         )
-
-    # Final feature map dimensions
+    
+    # Deep feature map dimensions
     _, height, width, depth = feature_map.get_shape()
-    print("CNN with final feature maps:", height, "x", width, "x", depth)
+    print("CNN with low level feature map:", height, "x", width, "x", depth)
     print(height*width*depth, "total features")
-
+    '''
     # Flattened for dense layer
     final_flat = tf.reshape(feature_map, [-1, height * width * depth])
 
@@ -40,13 +44,37 @@ def FeedbackNet(input, weights, feature_extractor):
         inputs=final_flat,
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         units=NUMCLASSES)
-
+    '''
+    
+    ### Feedback localization
+    ### TODO: Batch aware feedback vector creation
+    ###  Loss function that takes false negative classifications into account.
+    ###     Maybe don't add loss on negative classifications?
+    # Whether or not feedback is present
+    #fb_bool = tf.cast(tf.argmax(input=logits, axis=1), tf.bool)
+    
+    # Get freq vector
+    freq_vector = conv.encode(feature_map, conv.fb_vectorize)
+    
+    _, freqs, time, filters = freq_vector.get_shape()
+    print("Feedback vector map:", freqs, "x", time, "x", filters)
+    print(freqs*time*filters, "total features")
+    
+    # Flatten in prep for dense layer
+    freq_vector = tf.reshape(freq_vector, [-1, freqs * time * filters])
+    
+    # Dense layer for predicting actual feedback bins
+    logits = tf.layers.dense(
+        inputs=freq_vector,
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        units=freqs)
+    
     return logits
 
 def model(features, labels, mode, params):
     # features breakout
     image = features['image']
-    freqs = features['freqs'] # frequency vector
+    freq_labels = features['freqs'] # frequency vector
     max = features['max']     # max freq in vector
     
     # PNG processing
@@ -75,10 +103,10 @@ def model(features, labels, mode, params):
 
     predictions = {
         # Generate predictions (for PREDICT and EVAL mode)
-        "classes": tf.argmax(input=logits, axis=1),
+        #"classes": tf.argmax(input=logits, axis=1),
         # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
         # `logging_hook`
-        "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
+        "freq_bins": tf.nn.sigmoid(logits, name="sigmoid_tensor")
     }
 
     # Put images in tensorboard
@@ -88,9 +116,9 @@ def model(features, labels, mode, params):
             input_layer,
             max_outputs=18
         )
-
+        
     # Calculate classification Loss (for both TRAIN and EVAL modes)
-    loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+    loss = tf.losses.sigmoid_cross_entropy(multi_class_labels=freq_labels, logits=logits)
 
     # L2 Regularization for logits
     loss += tf.reduce_mean(tf.losses.get_regularization_losses())
@@ -111,6 +139,18 @@ def model(features, labels, mode, params):
     # Add evaluation metrics (for EVAL mode)
     eval_metric_ops = {
         "accuracy": tf.metrics.accuracy(
+            labels=freq_labels, predictions=predictions["freq_bins"]),
+        "mean_accuracy": tf.metrics.mean_per_class_accuracy(
+            labels=freq_labels, predictions=predictions["freq_bins"],
+            num_classes=NUMCLASSES),
+        "recall": tf.metrics.recall(
+            labels=freq_labels, predictions=predictions["freq_bins"]),
+        "precision": tf.metrics.precision(
+            labels=freq_labels, predictions=predictions["freq_bins"])
+    }
+    ''' Classification metrics
+    eval_metric_ops = {
+        "accuracy": tf.metrics.accuracy(
             labels=labels, predictions=predictions["classes"]),
         "mean_accuracy": tf.metrics.mean_per_class_accuracy(
             labels=labels, predictions=predictions["classes"],
@@ -120,6 +160,7 @@ def model(features, labels, mode, params):
         "precision": tf.metrics.precision(
             labels=labels, predictions=predictions["classes"])
     }
-
+    '''
+    
     return tf.estimator.EstimatorSpec(
         mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
