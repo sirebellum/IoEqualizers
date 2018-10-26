@@ -501,7 +501,7 @@ def main():
                             [feedbacks['freqs_vector'][x]],
                             np.expand_dims(bins,0)) # make [bins]-like
                 # Adjust bins to match image indices
-                indices = len(ffts[x]) - indices[0]
+                indices = len(ffts[x]) - indices[0] - 1
                 # Draw
                 if len(indices) != 0:
                     ffts[x][indices, 0:5] = 255
