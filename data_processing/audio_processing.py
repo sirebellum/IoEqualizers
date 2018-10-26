@@ -306,13 +306,14 @@ def freqs_to_idx(freqs, bins):
     return idxs
     
 # Map indices to a binary hot vector within range of freq bins
-def idx_to_vector(indices, bins):
-    assert bins.ndim == 2
-    assert bins.shape[0] == len(indices)
+def idx_to_vector(indices, num_bins):
+    # If bins are given instead of num_bins
+    if isinstance(num_bins, list) or isinstance(num_bins, np.ndarray):
+        num_bins = len(num_bins[0])
 
     # Create empty (0) arrays with correct shape
     instances = len(indices)
-    num_freqs = bins.shape[1]
+    num_freqs = num_bins
     vectors = np.zeros((instances, num_freqs), dtype=np.int64)
     
     # Set 1s
@@ -321,18 +322,54 @@ def idx_to_vector(indices, bins):
         vector[index] = 1
     
     return vectors
-
-# Map binary hot vector with freq bins to actual frequencies
-def vector_to_idx(vectors, bins):
-    assert bins.ndim == 2
-    assert bins.shape[0] == len(vectors)
+    
+# Map binary hot vector of freq bins to indices
+def vector_to_idx(vectors):
     
     # Create lists with indices for one hots
     indices = list()
     for vector in vectors:
-        indices.append( np.asarray([x for x in range(0, len(vector)) if vector[x] == 1]) )
+        idxs = [x for x in range(0, len(vector)) if vector[x] == 1]
+        indices.append( np.asarray(idxs) )
     
     return indices
+    
+# Compresses/expands vector to size
+def vector_resize(vectors, new_size):
+    assert vectors.ndim == 2
+    
+    # Old size of vector
+    old_size = vectors.shape[1]
+    
+    # Get indices of frequencies
+    idxs = vector_to_idx(vectors)
+    
+    # Interpolate indices between 0 and new_size
+    idxs[:] = [np.interp(idx,
+                         (0, old_size-1),
+                         (0, new_size-1)) for idx in idxs]
+    
+    # Add additional indices (if up-sizing)
+    idx_ratio = new_size/old_size
+    new_idxs = list()
+    for idx in idxs:
+        # Get ranges of indices based on ratio to new size
+        idx_expanded = list()
+        for i in idx:
+            ilower = int()
+            iupper = int(round(i + idx_ratio))
+            idx_expanded += list(range(ilower, iupper+1))
+        
+        # Remove duplicates
+        idx_expanded = list(set(idx_expanded))
+        # Remove indices outside of range
+        idx_expanded = [i for i in idx_expanded if i >= 0 and i < new_size]
+        new_idxs.append(np.asarray(idx_expanded))
+    
+    # Turn indices into vector
+    new_vectors = idx_to_vector(new_idxs, new_size)
+    
+    return new_vectors
     
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -371,13 +408,19 @@ if __name__ == "__main__":
     # Get frequency vector
     vectors = idx_to_vector(idxs, ref_bins)
     
+    # Resize vector
+    smoll_vectors = vector_resize(vectors, 36)
+    # back again
+    big_vectors = vector_resize(smoll_vectors, vectors.shape[1])
+    idxs = vector_to_idx(big_vectors)
+    
     # Print out ffts with frequencies highlighted
     instances = list( zip(images, idxs) )
     for image, idx in instances:
         # Adjust bins to match image indices
         indices = np.asarray(idx)
-        indices = len(image) - indices
+        indices = len(image) - indices - 1
         # Draw on first couple pixels of freq
         image[indices, 0:5] = 255
         plt.imshow(image)
-        plt.draw(); plt.pause(0.001); input(dataset["frequencies"])
+        plt.draw(); plt.pause(0.001); input(idx)
