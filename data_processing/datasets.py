@@ -492,16 +492,20 @@ def main():
         for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
             if feedbacks['fb'][x] == 1:
                 
-                # Calc freq bins
-                bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
-                bins = np.asarray(bins)
+                # Get frequencies directly from dataset
                 #indices = ap.freq_to_idx(feedbacks['freqs'][x], bins)
                 #indices = np.asarray(indices)
+                
+                # Get frequencies from freq vector and inferred freq ranges
+                # Calc freq ranges
+                bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
+                bins = np.asarray(bins)
+                
                 indices = ap.vector_to_idx( # add dim to match what function is expecting
-                            [feedbacks['freqs_vector'][x]],
-                            np.expand_dims(bins,0)) # make [bins]-like
+                            [feedbacks['freqs_vector'][x]])
                 # Adjust bins to match image indices
                 indices = len(ffts[x]) - indices[0] - 1
+                
                 # Draw
                 if len(indices) != 0:
                     ffts[x][indices, 0:5] = 255
