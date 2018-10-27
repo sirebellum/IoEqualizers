@@ -101,14 +101,6 @@ def model(features, labels, mode, params):
     if mode == tf.estimator.ModeKeys.PREDICT:
         return logits
 
-    predictions = {
-        # Generate predictions (for PREDICT and EVAL mode)
-        #"classes": tf.argmax(input=logits, axis=1),
-        # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
-        # `logging_hook`
-        "freq_bins": tf.nn.sigmoid(logits, name="sigmoid_tensor")
-    }
-
     # Put images in tensorboard
     if mode == tf.estimator.ModeKeys.TRAIN:
         tf.summary.image(
@@ -131,22 +123,63 @@ def model(features, labels, mode, params):
             global_step=tf.train.get_global_step())
         return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
 
-    # Mask non-feedback values if classifying for feedback
-    #class_mask = None
-    #if NUMCLASSES == 2:
-    #  class_mask = labels
-
+    # Get freq vector
+    predictions = {
+        # Generate predictions (for PREDICT and EVAL mode)
+        #"classes": tf.argmax(input=logits, axis=1),
+        # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
+        # `logging_hook`
+        "freq_probs": tf.nn.sigmoid(logits, name="sigmoid_tensor"),
+        "freq_vector": tf.to_int64(tf.nn.sigmoid(logits, name="sigmoid_tensor") > 0.9)
+    }
+    
+    # Adapts metric functions with non scalar outputs
+    def metric_fn(fn, labels, predictions, threshold):
+        value, update_op = fn(labels=labels, predictions=predictions, thresholds=[threshold])
+        return tf.squeeze(value), update_op
+    
     # Add evaluation metrics (for EVAL mode)
     eval_metric_ops = {
         "accuracy": tf.metrics.accuracy(
-            labels=freq_labels, predictions=predictions["freq_bins"]),
-        "mean_accuracy": tf.metrics.mean_per_class_accuracy(
-            labels=freq_labels, predictions=predictions["freq_bins"],
-            num_classes=NUMCLASSES),
-        "recall": tf.metrics.recall(
-            labels=freq_labels, predictions=predictions["freq_bins"]),
-        "precision": tf.metrics.precision(
-            labels=freq_labels, predictions=predictions["freq_bins"])
+                        labels=freq_labels,
+                        predictions=predictions['freq_vector']
+                        ),
+        "recall@0.5": metric_fn(
+                        tf.metrics.recall_at_thresholds,
+                        labels=freq_labels,
+                        predictions=predictions['freq_probs'],
+                        threshold=0.5
+                        ),
+        "precision@0.5": metric_fn(
+                        tf.metrics.precision_at_thresholds,
+                        labels=freq_labels,
+                        predictions=predictions['freq_probs'],
+                        threshold=0.5
+                        ),
+        "recall@0.7": metric_fn(
+                        tf.metrics.recall_at_thresholds,
+                        labels=freq_labels,
+                        predictions=predictions['freq_probs'],
+                        threshold=0.7
+                        ),
+        "precision@0.7": metric_fn(
+                        tf.metrics.precision_at_thresholds,
+                        labels=freq_labels,
+                        predictions=predictions['freq_probs'],
+                        threshold=0.7
+                        ),
+        "recall@0.9": metric_fn(
+                        tf.metrics.recall_at_thresholds,
+                        labels=freq_labels,
+                        predictions=predictions['freq_probs'],
+                        threshold=0.9
+                        ),
+        "precision@0.9": metric_fn(
+                        tf.metrics.precision_at_thresholds,
+                        labels=freq_labels,
+                        predictions=predictions['freq_probs'],
+                        threshold=0.9
+                        )
     }
     ''' Classification metrics
     eval_metric_ops = {
