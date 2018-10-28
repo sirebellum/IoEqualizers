@@ -5,6 +5,7 @@ import numpy as np
 import datasets
 import os
 import glob
+import audio_processing as ap
 
 def _list_feature(value):
   return tf.train.Feature(int64_list =tf.train.Int64List(value=value.reshape(-1)))
@@ -110,6 +111,10 @@ def generate(path_to_write, dataset_dir):
         fb = np.asarray(fb, dtype=np.int64)
         freqs = [ label for label in batch['freqs_vector'] ]
         freqs = np.asarray(freqs, dtype=np.int64)
+        
+        # Convert freq vector to smaller one
+        freqs = ap.vector_resize(freqs, 36)
+        
         max = [ label for label in batch['max'] ]
         max = np.asarray(max, dtype=np.int64)
         # Match what tfrecord writer is expecting

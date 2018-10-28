@@ -13,7 +13,7 @@ def parse_record(serialized_example): #parse a single binary example
     """Parses a single tf.Example into image and label tensors."""
     tfcontent = {'X': tf.FixedLenFeature([HEIGHT*WIDTH,], tf.float32),
                  'fb': tf.FixedLenFeature([1,], tf.int64),
-                 'freqs': tf.FixedLenFeature([HEIGHT,], tf.int64),
+                 'freqs': tf.FixedLenFeature([36,], tf.int64),
                  'max': tf.FixedLenFeature([1,], tf.int64),
                  }
     feature = tf.parse_single_example(serialized_example, tfcontent)

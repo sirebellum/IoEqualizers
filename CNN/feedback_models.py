@@ -144,37 +144,37 @@ def model(features, labels, mode, params):
                         labels=freq_labels,
                         predictions=predictions['freq_vector']
                         ),
-        "recall@0.5": metric_fn(
+        "0.5@recall": metric_fn(
                         tf.metrics.recall_at_thresholds,
                         labels=freq_labels,
                         predictions=predictions['freq_probs'],
                         threshold=0.5
                         ),
-        "precision@0.5": metric_fn(
+        "0.5@precision": metric_fn(
                         tf.metrics.precision_at_thresholds,
                         labels=freq_labels,
                         predictions=predictions['freq_probs'],
                         threshold=0.5
                         ),
-        "recall@0.7": metric_fn(
+        "0.7@recall": metric_fn(
                         tf.metrics.recall_at_thresholds,
                         labels=freq_labels,
                         predictions=predictions['freq_probs'],
                         threshold=0.7
                         ),
-        "precision@0.7": metric_fn(
+        "0.7@precision": metric_fn(
                         tf.metrics.precision_at_thresholds,
                         labels=freq_labels,
                         predictions=predictions['freq_probs'],
                         threshold=0.7
                         ),
-        "recall@0.9": metric_fn(
+        "0.9@recall": metric_fn(
                         tf.metrics.recall_at_thresholds,
                         labels=freq_labels,
                         predictions=predictions['freq_probs'],
                         threshold=0.9
                         ),
-        "precision@0.9": metric_fn(
+        "0.9@precision": metric_fn(
                         tf.metrics.precision_at_thresholds,
                         labels=freq_labels,
                         predictions=predictions['freq_probs'],
