@@ -167,11 +167,20 @@ if __name__ == "__main__":
         except:
             print( output.text )
             exit()
-            
-        if predictions[0] == 1:
+        
+        if max(predictions[0]) == 1:
             print("Feedback!")
-            # Draw box
-            image = np.pad(image, 2, mode='constant', constant_values=(1, 1))
+            
+            # Extrapolate bins
+            vectors = ap.vector_resize(np.asarray(predictions),
+                                       image.shape[0])
+                                       
+            # Adjust freq bins to match image indices   
+            idxs = np.asarray(ap.vector_to_idx(vectors))
+            idxs = image.shape[0] - idxs - 1
+            
+            # Draw on first couple pixels of freq
+            image[idxs, 0:5] = 1
             plt.imshow(image); plt.draw(); plt.pause(.001)
         else:
             #if counter%10 == 0: print("...")
