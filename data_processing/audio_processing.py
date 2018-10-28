@@ -349,7 +349,7 @@ def vector_resize(vectors, new_size):
                          (0, old_size-1),
                          (0, new_size-1)) for idx in idxs]
     
-    # Add additional indices (if up-sizing)
+    # Adjust indices
     idx_ratio = new_size/old_size
     new_idxs = list()
     for idx in idxs:
@@ -358,7 +358,7 @@ def vector_resize(vectors, new_size):
         for i in idx:
             ilower = int(i)
             iupper = int(round(i + idx_ratio))
-            idx_expanded += list(range(ilower, iupper+1))
+            idx_expanded += list(range(ilower, iupper))
         
         # Remove duplicates
         idx_expanded = list(set(idx_expanded))
