@@ -486,73 +486,82 @@ def main():
                             queuedone],
                       daemon = True)
         wav.start()
-
+    
     # Play/show
-    while feedbacks is not None:
-        for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
-            if feedbacks['fb'][x] == 1:
-                
-                # Get frequencies directly from dataset
-                #indices = ap.freq_to_idx(feedbacks['freqs'][x], bins)
-                #indices = np.asarray(indices)
-                
-                # Get frequencies from freq vector and inferred freq ranges
-                # Calc freq ranges
-                bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
-                bins = np.asarray(bins)
-                
-                indices = ap.vector_to_idx( # add dim to match what function is expecting
-                            [feedbacks['freqs_vector'][x]])
-                # Adjust bins to match image indices
-                indices = len(ffts[x]) - indices[0] - 1
-                
-                # Draw
-                if len(indices) != 0:
-                    ffts[x][indices, 0:5] = 255
-                # Display FFTs
-                plt.imshow(ffts[x])
-                plt.draw(); plt.pause(0.1)
-                
-                # Print wav files
-                wav_file = feedbacks['wav'][x].split('/')[-1]
-                beg = str(feedbacks['beg'][x])
-                print(wav_file+" "+beg)
-                
-                ### Play audio
-                if unprocessed:
-                    instance = feedbacks['audio'][x]
-                    if feedbacks['sample_rate'][x] != REF_RATE:
-                        # Convert fb sample rate to match instances's
-                        instance = audioop.ratecv(
-                            feedbacks['audio'][x],          # input
-                            feedbacks['audio'][x].itemsize, # bit depth (bytes)
-                            1, feedbacks['sample_rate'][x],       # channels, inrate
-                            REF_RATE,             # outrate
-                            None)                 # state..?
-                        instance = np.frombuffer(instance[0], dtype=np.int16)
+    try:
+        while feedbacks is not None:
+            for x in range(0, len(feedbacks[list(feedbacks.keys())[0]])):
+                if feedbacks['fb'][x] == 1:
+                    
+                    # Get frequencies directly from dataset
+                    #indices = ap.freq_to_idx(feedbacks['freqs'][x], bins)
+                    #indices = np.asarray(indices)
+                    
+                    # Get frequencies from freq vector and inferred freq ranges
+                    # Calc freq ranges
+                    bins = [feedbacks['max'][x]/(ap.HEIGHT-1) * n for n in range(0, ap.HEIGHT)]
+                    bins = np.asarray(bins)
+                    
+                    # Match what model is outputting
+                    vector = np.asarray([feedbacks['freqs_vector'][x]])
+                    vector = ap.vector_resize(vector, 42)
+                    vector = ap.vector_resize(vector, ffts[x].shape[0])
+                    
+                    # Get indices of freqs and match to image indices
+                    indices = ap.vector_to_idx(vector)
+                    indices = len(ffts[x]) - indices[0] - 1
+                    
+                    if len(indices) == 0:
+                        import ipdb;ipdb.set_trace()
                         
-                    # Write to temp wav file
-                    scipy.io.wavfile.write('temp.wav', REF_RATE, instance)
+                    # Draw
+                    if len(indices) != 0:
+                        ffts[x][indices, 0:5] = 255
+                    # Display FFTs
+                    plt.imshow(ffts[x])
+                    plt.draw(); plt.pause(0.1)
                     
-                    # Printouts per sample
-                    #print(feedbacks['wav'][x], feedbacks['beg'][x])
-                    time_amplitude = sum(abs(instance))/len(instance)
+                    # Print wav files
+                    wav_file = feedbacks['wav'][x].split('/')[-1]
+                    beg = str(feedbacks['beg'][x])
+                    print(wav_file+" "+beg)
                     
-                    if float("-inf") in ffts[x] or float("+inf") in ffts[x]:
-                        print("inf")
-                    else:
-                        fft_time_samples = len(ffts[x][0])
-                        total_fft_volume = sum(sum(abs(ffts[x])))
-                        print(int(total_fft_volume/fft_time_samples), # FFT Volume
-                              int(time_amplitude))                    # Time Volume
-                    
-                    # Play audio and wait for finish
-                    filename_queue.put("temp.wav")
-                    done = queuedone.get()
-        
-        # Get next batch
-        feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
-        ffts = feedbacks['fft']
+                    ### Play audio
+                    if unprocessed:
+                        instance = feedbacks['audio'][x]
+                        if feedbacks['sample_rate'][x] != REF_RATE:
+                            # Convert fb sample rate to match instances's
+                            instance = audioop.ratecv(
+                                feedbacks['audio'][x],          # input
+                                feedbacks['audio'][x].itemsize, # bit depth (bytes)
+                                1, feedbacks['sample_rate'][x],       # channels, inrate
+                                REF_RATE,             # outrate
+                                None)                 # state..?
+                            instance = np.frombuffer(instance[0], dtype=np.int16)
+                            
+                        # Write to temp wav file
+                        scipy.io.wavfile.write('temp.wav', REF_RATE, instance)
+                        
+                        # Printouts per sample
+                        #print(feedbacks['wav'][x], feedbacks['beg'][x])
+                        time_amplitude = sum(abs(instance))/len(instance)
+                        
+                        if float("-inf") in ffts[x] or float("+inf") in ffts[x]:
+                            print("inf")
+                        else:
+                            fft_time_samples = len(ffts[x][0])
+                            total_fft_volume = sum(sum(abs(ffts[x])))
+                            print(int(total_fft_volume/fft_time_samples), # FFT Volume
+                                  int(time_amplitude))                    # Time Volume
+                        
+                        # Play audio and wait for finish
+                        filename_queue.put("temp.wav")
+                        done = queuedone.get()
+            
+            # Get next batch
+            feedbacks = dataset_fb.returnInstance(100, unprocessed=unprocessed)
+            ffts = feedbacks['fft']
+    except KeyboardInterrupt: import ipdb;ipdb.set_trace()
     
     # End playback
     filename_queue.put(None)
