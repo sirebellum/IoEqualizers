@@ -138,36 +138,32 @@ def feature_encoder(features, kernels, biases):
     restore = False
     if kernels[0] is not None:
         restore = True
-
-    # Deepen
+    
+    # Pad so we don't lose frequencies
+    features = tf.pad(features, tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]]))
     conv1 = tf.layers.Conv2D(
         6, (3, 3),activation='relu',
         padding='valid',name='conv9-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(features)
+    
+    # Pad so we don't lose frequencies
+    conv1 = tf.pad(conv1, tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]]))
     conv2 = tf.layers.Conv2D(
         6, (3, 3),activation='relu',
         padding='valid',name='conv10-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
         bias_initializer=biases.pop())(conv1)
-    conv3 = tf.layers.Conv2D(
-        6, (3, 3),activation='relu',
-        padding='valid',name='conv11-',
-        kernel_initializer=kernels.pop(),
-        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
-        bias_initializer=biases.pop())(conv2)
         
-    #pool1 = tf.layers.MaxPooling2D((2, 2), (2, 2), padding='valid', name='feature_map-')(conv3)
-    feature_map = conv3
+    feature_map = conv2
     
     # If valid weights were loaded
     if restore:
         # Don't update layers
         tf.stop_gradient(conv1)
         tf.stop_gradient(conv2)
-        tf.stop_gradient(conv3)
     
     return feature_map
     
@@ -181,8 +177,16 @@ def fb_vectorize(features, kernels, biases):
         restore = True
 
     _, height, width, depth = features.get_shape()
-    # Pool out time scale
-    feedback_vector = tf.layers.MaxPooling2D((1, width), (1, 1), padding='valid', name='feature_map-')(features)
+    
+    # Pad so we don't lose frequencies
+    features = tf.pad(features, tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]]))
+    # Convolve along each frequency
+    feedback_vector = tf.layers.Conv2D(
+        12, (3, width),activation='relu',
+        padding='valid',name='conv_vector-',
+        kernel_initializer=kernels.pop(),
+        kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
+        bias_initializer=biases.pop())(features)
     
     # If valid weights were loaded
     if restore:

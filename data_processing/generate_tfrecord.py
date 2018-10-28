@@ -113,7 +113,7 @@ def generate(path_to_write, dataset_dir):
         freqs = np.asarray(freqs, dtype=np.int64)
         
         # Convert freq vector to smaller one
-        freqs = ap.vector_resize(freqs, 36)
+        freqs = ap.vector_resize(freqs, 42)
         
         max = [ label for label in batch['max'] ]
         max = np.asarray(max, dtype=np.int64)
