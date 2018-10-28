@@ -356,7 +356,7 @@ def vector_resize(vectors, new_size):
         # Get ranges of indices based on ratio to new size
         idx_expanded = list()
         for i in idx:
-            ilower = int()
+            ilower = int(i)
             iupper = int(round(i + idx_ratio))
             idx_expanded += list(range(ilower, iupper+1))
         
