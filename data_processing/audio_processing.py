@@ -325,6 +325,7 @@ def idx_to_vector(indices, num_bins):
     
 # Map binary hot vector of freq bins to indices
 def vector_to_idx(vectors):
+    assert vectors.ndim == 2
     
     # Create lists with indices for one hots
     indices = list()
@@ -346,8 +347,8 @@ def vector_resize(vectors, new_size):
     
     # Interpolate indices between 0 and new_size
     idxs[:] = [np.interp(idx,
-                         (0, old_size-1),
-                         (0, new_size-1)) for idx in idxs]
+                         (0, old_size),
+                         (0, new_size)) for idx in idxs]
     
     # Adjust indices
     idx_ratio = new_size/old_size
@@ -357,7 +358,7 @@ def vector_resize(vectors, new_size):
         idx_expanded = list()
         for i in idx:
             ilower = int(i)
-            iupper = int(round(i + idx_ratio))
+            iupper = int(round(i + idx_ratio + 1E-15)) # Rounds up on all .5s
             idx_expanded += list(range(ilower, iupper))
         
         # Remove duplicates
