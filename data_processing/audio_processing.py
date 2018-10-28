@@ -359,7 +359,7 @@ def vector_resize(vectors, new_size):
         for i in idx:
             ilower = int(i)
             iupper = int(round(i + idx_ratio + 1E-15)) # Rounds up on all .5s
-            idx_expanded += list(range(ilower, iupper))
+            idx_expanded += list(range(ilower, iupper)) + [ilower] # Add if range is empty
         
         # Remove duplicates
         idx_expanded = list(set(idx_expanded))
