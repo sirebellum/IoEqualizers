@@ -234,17 +234,17 @@ def slice_audio(input):
                 total_fft_volume = sum(sum(abs(fft)))
                 print (int(total_fft_volume/fft_time_samples))
             '''
-            beg += int(instance_samples*0.5) # Move window forward and try again
+            beg += int(instance_samples*0.25) # Move window forward and try again
             continue
             
-        elif volume >= abs(threshold) and threshold < 0: # Check for silence
-            beg += int(instance_samples*0.5) # Move window forward and try again
+        elif volume > abs(threshold) and threshold < 0: # Check for silence
+            beg += int(instance_samples*0.25) # Move window forward and try again
             continue
             
         else: # Check for overlap
             for label in labels:
                 if overlap(beg/sample_rate, size, label[0], label[1]):
-                    beg += int(instance_samples*0.5) # Move window forward
+                    beg += int(instance_samples*0.25) # Move window forward
                     good = False
                     break
                 else: # Nothing overlapped
