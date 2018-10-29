@@ -234,7 +234,7 @@ class feedback:
             ap.histogram(volumes, "volumes", nbins=20)
         '''
         
-        
+        '''
         ### Mark silent instances, get rid of short instances
         delete = list()
         threshold = 0 # FFT amp threshold
@@ -242,7 +242,6 @@ class feedback:
             wav_path = os.path.join(self.wav_dir, self.dataset["wav"][x])
             beg = self.dataset["beg"][x]
             end = self.dataset["beg"][x] + self.dataset["dur"][x]
-            
             instance_fft = ap.convertWav(self.wav_dict[wav_path][1],
                                       sample_rate=self.wav_dict[wav_path][0],
                                       crop_beg=beg,
@@ -252,11 +251,11 @@ class feedback:
             volume = total_fft_volume/fft_time_samples
             
             if volume < threshold:       delete.append(x)
-            #elif volume == float("inf"): delete.append(x)
-            elif fft_time_samples < WIDTH:  delete.append(x)
+            elif volume == float("inf"): delete.append(x)
+            if fft_time_samples < WIDTH: delete.append(x)
         # Delete silent instances
         self.delInstance(*delete)
-        
+        '''
         # Final access stats
         self.update_stats()
         print( "{} instances of feedback, {} of non-feedback"\
