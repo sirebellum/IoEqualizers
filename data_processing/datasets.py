@@ -86,7 +86,7 @@ class feedback:
         ### Create jittered duplicates of feedback
         for x in range(0, self.num_instances):
             if self.dataset['fb'][x] == 1:
-                jitters = [-0.2, -0.1, 0.1, 0.2]
+                jitters = [-0.2, -0.15, -0.1, -0.05, 0.05, 0.1, 0.15, 0.2]
                 for jitter in jitters:
                     jitter_beg = self.dataset['beg'][x]+jitter*self.instance_size
                     self.addInstance(wav=self.dataset['wav'][x],
