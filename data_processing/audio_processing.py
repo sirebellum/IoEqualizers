@@ -253,7 +253,7 @@ def slice_audio(input):
         if good:
             # We did it!
             instances.append([beg/sample_rate, size, wav])
-            beg += instance_samples # Jump ahead
+            beg += int(instance_samples*0.5) # Jump ahead
             
     return instances
 
