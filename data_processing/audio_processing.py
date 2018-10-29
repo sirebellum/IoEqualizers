@@ -223,7 +223,8 @@ def slice_audio(input):
         # Calculate avg volume per sample
         volumes = abs(signal[beg:beg+instance_samples])
         volume = sum(volumes)/len(volumes)
-        if volume < threshold: # Check for volume
+        
+        if volume < threshold and threshold >= 0: # Check for volume
             ''' Check for volume of fft
             fft = convertWav(signal[beg:beg+instance_samples], sample_rate=sample_rate)
             if float("-inf") in fft or float("+inf") in fft:
@@ -233,12 +234,17 @@ def slice_audio(input):
                 total_fft_volume = sum(sum(abs(fft)))
                 print (int(total_fft_volume/fft_time_samples))
             '''
-            beg += instance_samples # Move window forward and try again
+            beg += int(instance_samples*0.5) # Move window forward and try again
             continue
+            
+        elif volume >= abs(threshold) and threshold < 0: # Check for silence
+            beg += int(instance_samples*0.5) # Move window forward and try again
+            continue
+            
         else: # Check for overlap
             for label in labels:
                 if overlap(beg/sample_rate, size, label[0], label[1]):
-                    beg += instance_samples # Move window forward
+                    beg += int(instance_samples*0.5) # Move window forward
                     good = False
                     break
                 else: # Nothing overlapped
