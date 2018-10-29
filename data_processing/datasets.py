@@ -370,7 +370,7 @@ class feedback:
             noise = noise[0:len(instance)]
         
             # Generate random suppression coefficient
-            suppress_coef = float( np.random.randint(90, 100)/100.0 )
+            suppress_coef = float( np.random.randint(90, 110)/100.0 )
             # Suppress feedback volume
             max_instance = np.abs(instance).max()
             max_noise = np.abs(noise).max()
@@ -443,7 +443,7 @@ class feedback:
                         
                         
             ### Add noise to fraction of instances
-            fraction = float(1/3)
+            fraction = float(1/2)
             partial_index = int( len(filenames)*(1-fraction) )
             noisy_audio = self.addNoise(audios[partial_index:upper_index],
                                         data['fb'][partial_index:upper_index])
