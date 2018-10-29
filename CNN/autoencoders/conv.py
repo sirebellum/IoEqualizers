@@ -6,7 +6,7 @@ import tensorflow as tf
 import math
 NOIS_MEAN = 0.0
 NOISE_STD = 0.2
-BETA = 0.001
+BETA = 0.0001
 
 # Get image size data based on processing
 from data_processing import audio_processing as ap
@@ -182,7 +182,7 @@ def fb_vectorize(features, kernels, biases):
     features = tf.pad(features, tf.constant([[0, 0], [1, 1], [0, 0], [0, 0]]))
     # Convolve along each frequency
     feedback_vector = tf.layers.Conv2D(
-        12, (3, width),activation='relu',
+        6, (3, width),activation='relu',
         padding='valid',name='conv_vector-',
         kernel_initializer=kernels.pop(),
         kernel_regularizer=tf.contrib.layers.l2_regularizer(BETA),
@@ -191,7 +191,7 @@ def fb_vectorize(features, kernels, biases):
     # If valid weights were loaded
     if restore:
         # Don't update layers
-        pass
+        tf.stop_gradient(feedback_vector)
     
     return feedback_vector
     
