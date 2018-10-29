@@ -61,7 +61,7 @@ class feedback:
             # Chop up long instances
             if self.dataset["dur"][x] > self.instance_size:
                 delete.append(x) # Delete offending instance later
-                num_splits = int(self.dataset["dur"][x] / self.instance_size)+1
+                num_splits = int(self.dataset["dur"][x] / self.instance_size)
                 
                 # Split up single instance
                 for i in range(0, num_splits):
@@ -71,6 +71,14 @@ class feedback:
                                      dur=self.instance_size,
                                      fb=1,
                                      freqs=self.dataset['freqs'][x])
+                                     
+                # Add last chop up to the end of the feedback
+                new_beginning = self.dataset['beg'][x]+self.dataset['dur'][x]-self.instance_size
+                self.addInstance(wav=self.dataset['wav'][x],
+                                 beg=new_beginning,
+                                 dur=self.instance_size,
+                                 fb=1,
+                                 freqs=self.dataset['freqs'][x])
                                      
             # Pad short instances
             if self.dataset["dur"][x] < self.instance_size:
