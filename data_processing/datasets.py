@@ -263,22 +263,30 @@ class feedback:
         
         
         ### Shuffle everything
+        self.dataset = self.shuffle_dict(self.dataset)
+        
+    # End init
+    
+    
+    # Shuffles dictionary input
+    def shuffle_dict(self, data):
+        
         # Break out dataset dictionary into per-instance list for shuffling
         temp = list()
-        for key in self.dataset:
-            if len(self.dataset[key]) != 0:
-                temp.append(self.dataset[key])
+        for key in data:
+            if len(data[key]) != 0:
+                temp.append(data[key])
         temp = list( zip(*temp) )
         
         # Shuffle and recombine into dictionary
         random.shuffle(temp)
         temp = list( zip(*temp) )
         temp.reverse()
-        for key in self.dataset:
-            if len(self.dataset[key]) != 0:
-                self.dataset[key] = temp.pop()
-    # End init
-    
+        for key in data:
+            if len(data[key]) != 0:
+                data[key] = temp.pop()
+                
+        return data
     
     # Add signal and sample info to global dictioanary
     def addWavs(self, wavs):
@@ -464,6 +472,9 @@ class feedback:
 
             # Increment
             self.num_accessed += num
+            
+            # Shuffle batch
+            data = self.shuffle_dict(data)
             
             return data
 
