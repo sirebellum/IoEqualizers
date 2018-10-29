@@ -97,35 +97,11 @@ class feedback:
         # New access stats
         self.update_stats()
         
-        # Gather wav files into one dictionary instead of re-reading
+        
+        ### Gather wav files into one dictionary instead of re-reading
         wavs = list( set(self.dataset['wav']) )
         self.wav_dict = {} # WAV Filename: sample_rate, audio
         self.addWavs(wavs)
-        
-        
-        ### Create bank of silence for adding to feedback later
-        wavs = list( set(self.dataset['wav']) )
-        self.silences = list()
-        for wav in wavs:
-            sample_rate, signal = self.wav_dict[wav]
-        
-            # Format input to get all samples from wavs
-            input = [sample_rate, signal, self.instance_size, 0, [], wav]
-            samples = ap.slice_audio(input)
-            
-            # Append silent instances to silence bank
-            for sample in samples:
-                silence = ap.convertWav(
-                             signal,
-                             sample_rate=sample_rate,
-                             crop_beg=sample[0],
-                             crop_end=sample[0]+sample[1],
-                             convert=False
-                         )
-                volume = sum(abs(silence))/len(silence)
-                if volume <= 10:
-                    self.silences.append(silence)
-        random.shuffle(self.silences)
         
         
         ### Non-feedback samples
@@ -156,7 +132,8 @@ class feedback:
                 # Get overlap labels
                 labels = list()
                 for x in range(0, self.num_instances):
-                    if self.dataset['wav'][x] == wav: # Only for same wav
+                    if (self.dataset['wav'][x] == wav
+                    and self.dataset['fb'][x] == 1): # Only for same wav
                         labels.append( [self.dataset['beg'][x], \
                                         self.dataset['dur'][x]] )
                 
@@ -165,7 +142,7 @@ class feedback:
                 inputs.append(input)
             
             # Get instances from all wavs via multiprocessing
-            pool = Pool(processes=4)
+            pool = Pool(processes=7)
             instances_unformatted = pool.map(ap.slice_audio, inputs)
             instances = list() # Get rid of per-wav lists
             for instance in instances_unformatted:
@@ -189,6 +166,44 @@ class feedback:
             # New access stats
             self.update_stats()
         
+        
+        ### Create bank of silence for adding to feedback later
+        inputs = list()
+        for wav in self.wav_dict:
+            sample_rate, signal = self.wav_dict[wav]
+        
+            # Get overlap labels
+            labels = list()
+            for x in range(0, self.num_instances):
+                if (self.dataset['wav'][x] == wav
+                and self.dataset['fb'][x] == 1): # Only for same wav and fb
+                    labels.append( [self.dataset['beg'][x], \
+                                    self.dataset['dur'][x]] )
+        
+            # Format input to get all samples from wavs
+            input = [sample_rate, signal, self.instance_size, -20, labels, wav]
+            inputs.append(input)
+            
+        # Get silences from all wavs via multiprocessing
+        pool = Pool(processes=7)
+        silences_unformatted = pool.map(ap.slice_audio, inputs)
+        self.silences = list() # Get rid of per-wav lists
+        for silence in silences_unformatted:
+            self.silences += silence
+        pool.close()
+        pool.join()
+        
+        # Get audio for silences
+        self.silences[:] = [ap.convertWav(self.wav_dict[instance[2]][1],
+                                          sample_rate=self.wav_dict[instance[2]][0],
+                                          crop_beg=instance[0],
+                                          crop_end=instance[0]+instance[1],
+                                          convert=False) \
+                                  for instance in self.silences]
+        # Shuffle silences
+        random.shuffle(self.silences)
+        
+        
         '''
         ### Plot histogram of feedback magnitudes if testing
         if self.testing == True:
@@ -210,6 +225,7 @@ class feedback:
                     volumes.append( volume )
             ap.histogram(volumes, "volumes", nbins=20)
         '''
+        
         
         ### Mark silent instances, get rid of short instances
         delete = list()
