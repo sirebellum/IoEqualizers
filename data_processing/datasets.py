@@ -481,6 +481,50 @@ class feedback:
         # If no more instances to access
         else:
             return None
+            '''
+            if len(self.silences) == 0:
+                return None
+            
+            # Return remaining silence as negative examples
+            else:
+                data = {}
+                # Add raw audio info to output if asked for
+                if unprocessed:
+                    data['audio'] = self.silences
+                    # include sample rates since it's important
+                    data['sample_rate'] = [REF_RATE]*len(self.silences)
+               
+                # Return timestamps for data cleaning
+                if self.testing:
+                    data['wav'] = ['silence']*len(self.silences)
+                    data['beg'] = [-1]*len(self.silences)
+                    
+                # Process FFTs
+                ffts = [ap.convertWav(self.silences[x],
+                                      sample_rate=REF_RATE) \
+                            for x in range(0, len(self.silences))]
+                ffts, ref_bins = list( zip(*ffts) ) # Unpack ffts and bins
+                
+                # Convert to image and crop
+                data['fft'] = [ap.plotSpectrumBW(fft) for fft in ffts]
+                ref_bins = np.asarray(ref_bins)[:, 0:HEIGHT] # Convert and crop
+                
+                # Max frequency in fft image freq bins
+                data['max'] = [max(bins) for bins in ref_bins]
+                
+                # Empty frequency labels
+                data['freqs'] = [[]]*len(self.silences)
+                data['fb'] = [0]*len(self.silences)
+                
+                # Convert to freq vector
+                idxs = ap.freqs_to_idx(data['freqs'], ref_bins)
+                data['freqs_vector'] = ap.idx_to_vector(idxs, ref_bins)
+                
+                # Delete all silences
+                self.silences = []
+                
+                return data
+             '''
     
 ### MAIN THREAD ###
 def main():
