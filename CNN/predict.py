@@ -127,6 +127,9 @@ if __name__ == "__main__":
                   daemon = True)
     wav.start()
     
+    # Overlap ratio between instances
+    overlap = 0.5
+    prev_fft = [0]*int(instance_samples*overlap)
     # Detect feedback
     fft = 0
     counter = 0
@@ -134,15 +137,17 @@ if __name__ == "__main__":
         counter += 1
         
         # Get data chunks from wav player and grow fft sample
-        fft = list()
-        while fft is not None and len(fft) <= instance_samples:
-            fft += struct.unpack('1024h', execute_queue.get())
+        this_fft = list()
+        while this_fft is not None and len(this_fft) <= instance_samples*overlap:
+            this_fft += struct.unpack('1024h', execute_queue.get())
         
-        fft = np.asarray(fft, dtype=np.int16)
+        # Convert to image
+        fft = np.asarray(prev_fft+this_fft, dtype=np.int16)
         fft = ap.convertWav(fft, sample_rate=sample_rate)[0]
+        prev_fft = this_fft
         
         # Volume thresholding
-        threshold = 2000
+        threshold = 2200
         fft_time_samples = len(fft[0])
         total_fft_volume = sum(sum(abs(fft)))
         fft_volume = total_fft_volume/fft_time_samples
@@ -181,8 +186,8 @@ if __name__ == "__main__":
             
             # Draw on first couple pixels of freq
             image[idxs, 0:5] = 1
-            plt.imshow(image); plt.draw(); plt.pause(.001)
+            plt.imshow(image); plt.draw(); plt.pause(.0001)
         else:
             #if counter%10 == 0: print("...")
-            plt.imshow(image); plt.draw(); plt.pause(.001)
+            plt.imshow(image); plt.draw(); plt.pause(.0001)
     
