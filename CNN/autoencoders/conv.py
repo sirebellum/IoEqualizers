@@ -6,7 +6,7 @@ import tensorflow as tf
 import math
 NOIS_MEAN = 0.0
 NOISE_STD = 0.2
-BETA = 0.0001
+BETA = 0.000075
 
 # Get image size data based on processing
 from data_processing import audio_processing as ap

@@ -52,7 +52,7 @@ def main(_):
         logits_tf = feedback_models.model(input_features, None, tf.estimator.ModeKeys.PREDICT, params)
 
         # extract the classifications
-        predictions_tf = tf.to_int64(tf.nn.sigmoid(logits_tf) > 0.9)
+        predictions_tf = tf.to_int64(tf.nn.sigmoid(logits_tf) > 0.7)
 
         # specify the directory where the pre-trained model weights are stored
         pre_trained_model_dir = os.path.join(model_name)

@@ -443,7 +443,7 @@ class feedback:
                         
                         
             ### Add noise to fraction of instances
-            fraction = float(1/2)
+            fraction = float(1/3)
             partial_index = int( len(filenames)*(1-fraction) )
             noisy_audio = self.addNoise(audios[partial_index:upper_index],
                                         data['fb'][partial_index:upper_index])

@@ -3,7 +3,7 @@ sys.path.append('../') # Top directory
 
 import tensorflow as tf
 from autoencoders import conv
-BETA = 0.005 # L2 Beta
+BETA = 0.0025 # L2 Beta
 
 # Get image size data based on processing
 from data_processing import audio_processing as ap
@@ -117,7 +117,7 @@ def model(features, labels, mode, params):
 
     # Configure the Training Op (for TRAIN mode)
     if mode == tf.estimator.ModeKeys.TRAIN:
-        optimizer = tf.train.AdamOptimizer()
+        optimizer = tf.train.AdamOptimizer(learning_rate=0.0005)
         train_op = optimizer.minimize(
             loss=loss,
             global_step=tf.train.get_global_step())
