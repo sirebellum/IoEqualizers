@@ -163,10 +163,13 @@ if __name__ == "__main__":
         # Turn into json request
         json_request = create_json([png_image], signature_name)
         
-        # Get predictions
+        # Send frame to server
         beg = timer()
-        output = requests.post(url, data=json_request)
+        try: output = requests.post(url, data=json_request, timeout=0.5) # Don't hang on one frame
+        except: continue
         print(sys.getsizeof(json_request), timer()-beg)
+        
+        # Get predictions from response
         try:
             predictions = output.json()['predictions']
         except:
