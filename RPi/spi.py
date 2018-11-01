@@ -1,0 +1,66 @@
+# Add top level of git to path
+import sys
+sys.path.append("../")
+
+import spidev
+import time
+import numpy as np
+
+# Uses SPI to send feedback vectors and receive audio
+class audioSPI:
+
+    def __init__(self):
+        self.spi = spidev.SpiDev() # create spi object
+        self.spi.open(0, 0) # open spi port 0, device (CS) 0
+        self.spi.max_speed_hz = 122001
+    
+    
+    # Meant to be run in a separate thread. Collects audio samples
+    # until size received and outputs instance to queue.
+    def transmitter(self, queuein, queue):
+        size = queuein.get()
+        while True:
+        
+            # Get feedback vector if there is one
+            try:
+                payload = queuein.get_nowait()
+            except:
+                payload = [0xAA]
+            
+            # Gather samples for instance
+            instance = list()
+            while len(instance) < size:
+                instance += self.spi.xfer2(payload)
+            
+            # Only one instance allowed in queue
+            try:
+                queue.put(instance, block=False)
+            except:
+                pass
+        
+        
+    def __del__(self):
+        self.spi.close() # close the port before exit
+        
+if __name__ == "__main__":
+    from multiprocessing import Queue, Process
+    import data_processing.audio_processing as ap
+    
+    # Instantiate communicator
+    comm = audioSPI()
+    
+    # Launch SPI transmitter
+    audio_queue = Queue(maxsize = 1)
+    fb_queue = Queue(maxsize = 1)
+    transmitter = Process(target=comm.transmitter,
+                          args=(fb_queue,
+                            audio_queue),
+                          daemon = True)
+    transmitter.start()
+    
+    # Choose instance size to create
+    sample_rate = 44100
+    instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
+    fb_queue.put(int(instance_samples/2))
+    
+    import pdb;pdb.set_trace()
