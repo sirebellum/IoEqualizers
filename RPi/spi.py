@@ -12,7 +12,7 @@ class audioSPI:
     def __init__(self):
         self.spi = spidev.SpiDev() # create spi object
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
-        self.spi.max_speed_hz = 122001
+        self.spi.max_speed_hz = 122000
     
     
     # Meant to be run in a separate thread. Collects audio samples
@@ -25,12 +25,13 @@ class audioSPI:
             try:
                 payload = queuein.get_nowait()
             except:
-                payload = [0xAA]
+                payload = [0xAA] # Send 10101010 between fb vectors
             
             # Gather samples for instance
             instance = list()
             while len(instance) < size:
                 instance += self.spi.xfer2(payload)
+                payload = [0xAA]
             
             # Only one instance allowed in queue
             try:
@@ -62,5 +63,11 @@ if __name__ == "__main__":
     sample_rate = 44100
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
     fb_queue.put(int(instance_samples/2))
+    
+    # Test sending something
+    time.sleep(0.5)
+    fb_queue.put([0xFF, 0xFF, 0xFF])
+    print(set(audio_queue.get()))
+    print(set(audio_queue.get()))
     
     import pdb;pdb.set_trace()
