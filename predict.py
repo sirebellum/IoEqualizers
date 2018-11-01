@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import json
 import requests
@@ -104,7 +105,7 @@ def wav_player(filename, queue):
 
 if __name__ == "__main__":
     from timeit import default_timer as timer
-    #import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     
     ### If operating on spi
     if args.spi:
