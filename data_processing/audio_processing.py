@@ -2,7 +2,6 @@
 from __future__ import print_function
 import json
 import os
-import scipy.io.wavfile
 import numpy as np
 from multiprocessing import Pool
 import glob
@@ -109,6 +108,7 @@ def convertWav(input, \
     signal = input
     # If filename supplied
     if sample_rate is None:
+        import scipy.io.wavfile
         sample_rate, signal = scipy.io.wavfile.read(input)
 
     # Crop
