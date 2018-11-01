@@ -5,6 +5,7 @@ sys.path.append("../")
 import spidev
 import time
 import numpy as np
+from multiprocessing import Queue, Process
 
 # Uses SPI to send feedback vectors and receive audio
 class audioSPI:
@@ -14,6 +15,14 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
         self.spi.max_speed_hz = 122000
     
+        # Launch SPI transmitter in separate thread
+        self.audio_queue = Queue(maxsize = 1)
+        self.fb_queue = Queue(maxsize = 1)
+        thread = Process(target=self.transmitter,
+                         args=(self.fb_queue,
+                               self.audio_queue),
+                         daemon = True)
+        thread.start()
     
     # Meant to be run in a separate thread. Collects audio samples
     # until size received and outputs instance to queue.
@@ -44,30 +53,20 @@ class audioSPI:
         self.spi.close() # close the port before exit
         
 if __name__ == "__main__":
-    from multiprocessing import Queue, Process
     import data_processing.audio_processing as ap
     
     # Instantiate communicator
     comm = audioSPI()
     
-    # Launch SPI transmitter
-    audio_queue = Queue(maxsize = 1)
-    fb_queue = Queue(maxsize = 1)
-    transmitter = Process(target=comm.transmitter,
-                          args=(fb_queue,
-                            audio_queue),
-                          daemon = True)
-    transmitter.start()
-    
-    # Choose instance size to create
+    # Choose instance size to return
     sample_rate = 44100
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-    fb_queue.put(int(instance_samples/2))
+    comm.fb_queue.put(int(instance_samples/2))
     
     # Test sending something
     time.sleep(0.5)
-    fb_queue.put([0xFF, 0xFF, 0xFF])
-    print(set(audio_queue.get()))
-    print(set(audio_queue.get()))
+    comm.fb_queue.put([0xFF, 0xFF, 0xFF])
+    print(set(comm.audio_queue.get()))
+    print(set(comm.audio_queue.get()))
     
     import pdb;pdb.set_trace()
