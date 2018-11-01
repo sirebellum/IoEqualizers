@@ -29,18 +29,18 @@ class audioSPI:
     def transmitter(self, queuein, queue):
         size = queuein.get()
         while True:
-        
-            # Get feedback vector if there is one
-            try:
-                payload = queuein.get_nowait()
-            except:
-                payload = [0xAA] # Send 10101010 between fb vectors
             
             # Gather samples for instance
             instance = list()
             while len(instance) < size:
+                # Get feedback vector if there is one
+                try:
+                    payload = queuein.get_nowait()
+                except:
+                    payload = [0xAA] # Send 10101010 between fb vectors
+                
+                # Send/receive
                 instance += self.spi.xfer2(payload)
-                payload = [0xAA]
             
             # Only one instance allowed in queue
             try:
