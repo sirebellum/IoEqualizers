@@ -1,7 +1,3 @@
-# Add top level of git to path
-import sys
-sys.path.append("../")
-
 import numpy as np
 import json
 import requests
@@ -13,6 +9,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("model_id", help='relative path to model to be loaded.')
 parser.add_argument("--server", default='192.168.12.3', help='Models version number.')
+parser.add_argument("--spi", default=False, help='Are we getting audio from spi')
 args = parser.parse_args()
 
 # Server data
@@ -106,40 +103,55 @@ def wav_player(filename, queue):
 
 
 if __name__ == "__main__":
-    import scipy.io.wavfile
-    from PIL import Image
-    import matplotlib.pyplot as plt
-    import struct
     from timeit import default_timer as timer
+    #import matplotlib.pyplot as plt
     
-    # Signal processing signal
-    input = "test_feedback.wav"
-    sample_rate, signal = scipy.io.wavfile.read(input)
+    ### If operating on spi
+    if args.spi:
+        import rpi.spi as spi
+        
+        print("Not implemented!")
+        
+    ### If operating on wav
+    else:
+        import scipy.io.wavfile
+        import struct
     
-    # Get ffts
+        # Signal processing signal
+        input = "test_feedback.wav"
+        sample_rate, signal = scipy.io.wavfile.read(input)
+    
+        # Launch wav reader with indicator queue
+        execute_queue = Queue(maxsize = 1)
+        wav = Process(target=wav_player,
+                      args=(input,
+                            execute_queue),
+                      daemon = True)
+        wav.start()
+    
+    # Number of samples in an instance
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-    
-    # Launch wav reader with indicator queue
-    execute_queue = Queue(maxsize = 1)
-    wav = Process(target=wav_player,
-                  args=(input,
-                        execute_queue),
-                  daemon = True)
-    wav.start()
     
     # Overlap ratio between instances
     overlap = 0.5
     prev_fft = [0]*int(instance_samples*overlap)
-    # Detect feedback
+    
+    ### Detect feedback
     fft = 0
     counter = 0
     while fft is not None:
         counter += 1
         
-        # Get data chunks from wav player and grow fft sample
+        # Get data chunks from audio source and grow fft sample
         this_fft = list()
-        while this_fft is not None and len(this_fft) <= instance_samples*overlap:
-            this_fft += struct.unpack('1024h', execute_queue.get())
+        
+        # SPI
+        if args.spi:
+            exit("Not Implemented!")
+        # Wav
+        else:
+            while this_fft is not None and len(this_fft) <= instance_samples*overlap:
+                this_fft += struct.unpack('1024h', execute_queue.get())
         
         # Convert to image
         fft = np.asarray(prev_fft+this_fft, dtype=np.int16)
