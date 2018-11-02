@@ -107,11 +107,20 @@ if __name__ == "__main__":
     from timeit import default_timer as timer
     import matplotlib.pyplot as plt
     
+    # Overlap ratio between instances
+    overlap = 0.5
+    
     ### If operating on spi
     if args.spi:
         import rpi.spi as spi
         
-        print("Not implemented!")
+        # Instantiate communicator
+        comm = spi.audioSPI()
+    
+        # Choose instance size to return
+        sample_rate = 44100
+        instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
+        comm.fb_queue.put(int(instance_samples*overlap))
         
     ### If operating on wav
     else:
@@ -121,7 +130,10 @@ if __name__ == "__main__":
         # Signal processing signal
         input = "test_feedback.wav"
         sample_rate, signal = scipy.io.wavfile.read(input)
-    
+        
+        # Number of samples in an instance
+        instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
+        
         # Launch wav reader with indicator queue
         execute_queue = Queue(maxsize = 1)
         wav = Process(target=wav_player,
@@ -130,11 +142,7 @@ if __name__ == "__main__":
                       daemon = True)
         wav.start()
     
-    # Number of samples in an instance
-    instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-    
-    # Overlap ratio between instances
-    overlap = 0.5
+    # First half of instance
     prev_fft = [0]*int(instance_samples*overlap)
     
     ### Detect feedback
@@ -148,7 +156,7 @@ if __name__ == "__main__":
         
         # SPI
         if args.spi:
-            exit("Not Implemented!")
+            this_fft += comm.audio_queue.get()
         # Wav
         else:
             while this_fft is not None and len(this_fft) <= instance_samples*overlap:
@@ -170,8 +178,8 @@ if __name__ == "__main__":
         # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
         png_image = create_png(image, c=0)
-        image = np.asarray(image, dtype=np.float32)
-        image *= 1/255.0
+        #image = np.asarray(image, dtype=np.float32)
+        #image *= 1/255.0
         
         # Turn into json request
         json_request = create_json([png_image], signature_name)
@@ -189,11 +197,24 @@ if __name__ == "__main__":
             print( output.text )
             exit()
         
+        # If there was feedback detected
         if max(predictions[0]) == 1:
             print("Feedback!")
             
+            vectors = np.asarray(predictions, dtype=np.int8)
+            
+            # SPI
+            if args.spi:
+                # Format vector for SPI
+                spi_vector = np.ones(vectors.shape[1]+6, dtype=np.int8)
+                spi_vector[3:45] = vectors[0]
+                spi_vector = np.packbits(spi_vector)
+                
+                # Send
+                comm.fb_queue.put(spi_vector.tolist())
+            
             # Extrapolate bins
-            vectors = ap.vector_resize(np.asarray(predictions),
+            vectors = ap.vector_resize(vectors,
                                        image.shape[0])
                                        
             # Adjust freq bins to match image indices   
@@ -201,8 +222,8 @@ if __name__ == "__main__":
             idxs = image.shape[0] - idxs - 1
             
             # Draw on first couple pixels of freq
-            image[idxs, 0:5] = 1
-            plt.imshow(image); plt.draw(); plt.pause(.0001)
+            image[idxs, 0:5] = 255
+            #plt.imshow(image); plt.draw(); plt.pause(.0001)
         else:
             #if counter%10 == 0: print("...")
             plt.imshow(image); plt.draw(); plt.pause(.0001)
