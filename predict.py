@@ -145,6 +145,10 @@ if __name__ == "__main__":
     # First half of instance
     prev_fft = [0]*int(instance_samples*overlap)
     
+    # Get all even/odd numbers up to instance size and beyond
+    even = np.arange(start=0, stop=instance_samples+100, step=2)
+    odd  = np.arange(start=1, stop=instance_samples+100, step=2)
+    
     ### Detect feedback
     fft = 0
     counter = 0
@@ -157,6 +161,12 @@ if __name__ == "__main__":
         # SPI
         if args.spi:
             this_fft += comm.audio_queue.get()
+            
+            # Convert 2 bytes to 1 audio sample
+            instance[even[0:len(instance)/2]] = \
+                    np.left_shift(instance[even[0:len(instance)/2]], 8)
+            instance = np.bitwise_or(instance[even[0:len(instance)/2]],
+                                     instance[odd[0:len(instance)/2]])
         # Wav
         else:
             while this_fft is not None and len(this_fft) <= instance_samples*overlap:
