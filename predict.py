@@ -9,6 +9,7 @@ from multiprocessing import Process, Queue
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("model_id", help='relative path to model to be loaded.')
+parser.add_argument("wav", help='relative path to wav to process.')
 parser.add_argument("--server", default='192.168.12.3', help='Models version number.')
 parser.add_argument("--spi", default=False, help='Are we getting audio from spi')
 args = parser.parse_args()
@@ -128,7 +129,7 @@ if __name__ == "__main__":
         import struct
     
         # Signal processing signal
-        input = "test_feedback.wav"
+        input = args.wav
         sample_rate, signal = scipy.io.wavfile.read(input)
         
         # Number of samples in an instance
@@ -178,7 +179,7 @@ if __name__ == "__main__":
         prev_fft = this_fft
         
         # Volume thresholding
-        threshold = 2200
+        threshold = 2350
         fft_time_samples = len(fft[0])
         total_fft_volume = sum(sum(abs(fft)))
         fft_volume = total_fft_volume/fft_time_samples
