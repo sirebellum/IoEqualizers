@@ -233,7 +233,7 @@ if __name__ == "__main__":
             
             # Draw on first couple pixels of freq
             image[idxs, 0:5] = 255
-            #plt.imshow(image); plt.draw(); plt.pause(.0001)
+            plt.imshow(image); plt.draw(); plt.pause(.0001)
         else:
             #if counter%10 == 0: print("...")
             plt.imshow(image); plt.draw(); plt.pause(.0001)
