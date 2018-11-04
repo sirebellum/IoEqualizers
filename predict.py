@@ -151,12 +151,7 @@ if __name__ == "__main__":
     
     ### Detect feedback
     fft = 0
-    counter = 0
     while fft is not None:
-        counter += 1
-        
-        # Get data chunks from audio source and grow fft sample
-        this_fft = list()
         
         # SPI
         if args.wav == 'spi':
@@ -170,6 +165,8 @@ if __name__ == "__main__":
                                      this_fft[odd[0:samples]])
         # Wav
         else:
+            # Get data chunks from audio source and grow fft sample
+            this_fft = list()
             while this_fft is not None and len(this_fft) <= instance_samples*overlap:
                 this_fft += struct.unpack('1024h', execute_queue.get())
         
@@ -236,6 +233,5 @@ if __name__ == "__main__":
             image[idxs, 0:5] = 255
             plt.imshow(image); plt.draw(); plt.pause(.0001)
         else:
-            #if counter%10 == 0: print("...")
             plt.imshow(image); plt.draw(); plt.pause(.0001)
     
