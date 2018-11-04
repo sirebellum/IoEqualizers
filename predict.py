@@ -161,12 +161,13 @@ if __name__ == "__main__":
         # SPI
         if args.wav == 'spi':
             this_fft = np.asarray( comm.audio_queue.get() )
+            samples = int(len(this_fft)/2) # 2 bytes per sample
             
             # Convert 2 bytes to 1 audio sample
-            this_fft[even[0:len(this_fft)/2]] = \
-                    np.left_shift(this_fft[even[0:len(this_fft)/2]], 8)
-            this_fft = np.bitwise_or(this_fft[even[0:len(this_fft)/2]],
-                                     this_fft[odd[0:len(this_fft)/2]])
+            this_fft[even[0:samples]] = \
+                    np.left_shift(this_fft[even[0:samples]], 8)
+            this_fft = np.bitwise_or(this_fft[even[0:samples]],
+                                     this_fft[odd[0:samples]])
         # Wav
         else:
             while this_fft is not None and len(this_fft) <= instance_samples*overlap:
