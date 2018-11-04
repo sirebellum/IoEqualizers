@@ -61,6 +61,7 @@ class audioSPI:
         self.spi.close() # close the port before exit
         
 if __name__ == "__main__":
+    import matplotlib.pyplot as plt
     import data_processing.audio_processing as ap
     
     # Instantiate communicator
@@ -71,29 +72,37 @@ if __name__ == "__main__":
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
     comm.fb_queue.put(int(instance_samples/2))
     
-    # Test sending a vector
-    time.sleep(0.5)
-    
+    # Prep vector to send
     vector = [1]+[0]*41
     spi_vector = np.ones(48, dtype=np.int8)
     spi_vector[3:45] = np.asarray(vector, dtype=np.int8)
     spi_vector = np.packbits(spi_vector)
     
-    # Get values
-    instance = np.asarray( comm.audio_queue.get(), dtype=np.int16 )
-    comm.fb_queue.put(spi_vector.tolist())
-    instance1 = np.asarray( comm.audio_queue.get(), dtype=np.int16 )
-    
     # Get all even/odd numbers up to instance size
     even = np.arange(start=0, stop=instance_samples+100, step=2)
     odd  = np.arange(start=1, stop=instance_samples+100, step=2)
     
-    # Convert 2 bytes to 1 audio sample
-    instance[even[0:len(instance)/2]] = np.left_shift(instance[even[0:len(instance)/2]], 8)
-    instance = np.bitwise_or(instance[even[0:len(instance)/2]],
-                             instance[odd[0:len(instance)/2]])
+    # Obtain and print samples until interrupted
+    try:
+        while True:
+        
+            # Put vector
+            comm.fb_queue.put( spi_vector.tolist() )
+        
+            # Get value
+            instance = np.asarray( comm.audio_queue.get(), dtype=np.int16 )
+            
+            # Convert 2 bytes to 1 audio sample
+            instance[even[0:len(instance)/2]] = \
+                    np.left_shift(instance[even[0:len(instance)/2]], 8)
+            instance = np.bitwise_or(instance[even[0:len(instance)/2]],
+                                     instance[odd[0:len(instance)/2]])
+            
+            # Visualize
+            #plt.plot(instance); plt.draw(); plt.pause(.0001)
+            
+            # Print
+            print( set(instance) )
     
-    print(set(instance))
-    print(set(instance1))
-    
-    import pdb;pdb.set_trace()
+    except KeyboardInterrupt:
+        exit()
