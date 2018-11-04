@@ -15,7 +15,7 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
         
         # Configuration
-        self.spi.max_speed_hz = 122000
+        self.spi.max_speed_hz = int(15.6E6)
     
         # Launch SPI transmitter in separate thread
         self.audio_queue = Queue(maxsize = 1)
@@ -36,18 +36,19 @@ class audioSPI:
         # Run continuously in separate thread
         while True:
             
+            # Get feedback vector if there is one
+            try:
+                payload = queuein.get_nowait()
+            except:
+                payload = [0xAA] # Send 10101010 between fb vectors
+            
             # Gather samples for instance
             instance = list()
             while len(instance) < size*2: # 2 bytes per sample
-            
-                # Get feedback vector if there is one
-                try:
-                    payload = queuein.get_nowait()
-                except:
-                    payload = [0xAA] # Send 10101010 between fb vectors
                 
                 # Send/receive 1 byte for 1/2 audio sample
                 instance += self.spi.xfer2(payload)
+                payload = [0xAA]
             
             # Only one instance allowed in queue
             try:
