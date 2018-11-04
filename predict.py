@@ -9,7 +9,8 @@ from multiprocessing import Process, Queue
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("model_id", help='relative path to model to be loaded.')
-parser.add_argument("wav", help='relative path to wav to process.')
+parser.add_argument("wav", help='relative path to wav to process. "spi" otherwise')
+parser.add_argument("--vis", default='True', help='Plot FFT or not.')
 parser.add_argument("--server", default='192.168.12.3', help='Models version number.')
 args = parser.parse_args()
 
@@ -105,7 +106,8 @@ def wav_player(filename, queue):
 
 if __name__ == "__main__":
     from timeit import default_timer as timer
-    import matplotlib.pyplot as plt
+    if args.vis == 'True':
+        import matplotlib.pyplot as plt
     
     # Overlap ratio between instances
     overlap = 0.5
@@ -221,17 +223,20 @@ if __name__ == "__main__":
                 # Send
                 comm.fb_queue.put(spi_vector.tolist())
             
-            # Extrapolate bins
-            vectors = ap.vector_resize(vectors,
-                                       image.shape[0])
-                                       
-            # Adjust freq bins to match image indices   
-            idxs = np.asarray(ap.vector_to_idx(vectors))
-            idxs = image.shape[0] - idxs - 1
-            
-            # Draw on first couple pixels of freq
-            image[idxs, 0:5] = 255
-            plt.imshow(image); plt.draw(); plt.pause(.0001)
-        else:
+            # Visualization
+            if args.vis == 'True':               
+                # Extrapolate bins
+                vectors = ap.vector_resize(vectors,
+                                           image.shape[0])
+                                           
+                # Adjust freq bins to match image indices   
+                idxs = np.asarray(ap.vector_to_idx(vectors))
+                idxs = image.shape[0] - idxs - 1
+                
+                # Draw on first couple pixels of freq
+                image[idxs, 0:5] = 255
+                plt.imshow(image); plt.draw(); plt.pause(.0001)
+                
+        elif args.vis == 'True':
             plt.imshow(image); plt.draw(); plt.pause(.0001)
     
