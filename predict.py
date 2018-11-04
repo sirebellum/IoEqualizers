@@ -11,7 +11,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument("model_id", help='relative path to model to be loaded.')
 parser.add_argument("wav", help='relative path to wav to process.')
 parser.add_argument("--server", default='192.168.12.3', help='Models version number.')
-parser.add_argument("--spi", default=False, help='Are we getting audio from spi')
 args = parser.parse_args()
 
 # Server data
@@ -112,7 +111,7 @@ if __name__ == "__main__":
     overlap = 0.5
     
     ### If operating on spi
-    if args.spi:
+    if args.wav == 'spi':
         import rpi.spi as spi
         
         # Instantiate communicator
@@ -144,7 +143,7 @@ if __name__ == "__main__":
         wav.start()
     
     # First half of instance
-    prev_fft = [0]*int(instance_samples*overlap)
+    prev_fft = np.asarray( [0]*int(instance_samples*overlap) )
     
     # Get all even/odd numbers up to instance size and beyond
     even = np.arange(start=0, stop=instance_samples+100, step=2)
@@ -160,21 +159,21 @@ if __name__ == "__main__":
         this_fft = list()
         
         # SPI
-        if args.spi:
-            this_fft += comm.audio_queue.get()
+        if args.wav == 'spi':
+            this_fft = np.asarray( comm.audio_queue.get() )
             
             # Convert 2 bytes to 1 audio sample
-            instance[even[0:len(instance)/2]] = \
-                    np.left_shift(instance[even[0:len(instance)/2]], 8)
-            instance = np.bitwise_or(instance[even[0:len(instance)/2]],
-                                     instance[odd[0:len(instance)/2]])
+            this_fft[even[0:len(this_fft)/2]] = \
+                    np.left_shift(this_fft[even[0:len(this_fft)/2]], 8)
+            this_fft = np.bitwise_or(this_fft[even[0:len(this_fft)/2]],
+                                     this_fft[odd[0:len(this_fft)/2]])
         # Wav
         else:
             while this_fft is not None and len(this_fft) <= instance_samples*overlap:
                 this_fft += struct.unpack('1024h', execute_queue.get())
         
         # Convert to image
-        fft = np.asarray(prev_fft+this_fft, dtype=np.int16)
+        fft = np.asarray(np.concatenate((prev_fft,this_fft)), dtype=np.int16)
         fft = ap.convertWav(fft, sample_rate=sample_rate)[0]
         prev_fft = this_fft
         
@@ -215,7 +214,7 @@ if __name__ == "__main__":
             vectors = np.asarray(predictions, dtype=np.int8)
             
             # SPI
-            if args.spi:
+            if args.wav == 'spi':
                 # Format vector for SPI
                 spi_vector = np.ones(vectors.shape[1]+6, dtype=np.int8)
                 spi_vector[3:45] = vectors[0]
