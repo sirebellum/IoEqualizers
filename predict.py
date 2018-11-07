@@ -107,7 +107,7 @@ def wav_player(filename, queue):
 if __name__ == "__main__":
     from timeit import default_timer as timer
     if args.vis == 'True':
-        import matplotlib.pyplot as plt
+        import cv2
     
     # Overlap ratio between instances
     overlap = 0.5
@@ -235,8 +235,7 @@ if __name__ == "__main__":
                 
                 # Draw on first couple pixels of freq
                 image[idxs, 0:5] = 255
-                plt.imshow(image); plt.draw(); plt.pause(.0001)
+                cv2.imshow('image',image); cv2.waitKey()
                 
         elif args.vis == 'True':
-            plt.imshow(image); plt.draw(); plt.pause(.0001)
-    
+            cv2.imshow('image',image); cv2.waitKey(1)
