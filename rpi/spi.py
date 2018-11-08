@@ -93,10 +93,11 @@ if __name__ == "__main__":
             instance = np.asarray( comm.audio_queue.get(), dtype=np.int16 )
             
             # Convert 2 bytes to 1 audio sample
-            instance[even[0:len(instance)/2]] = \
-                    np.left_shift(instance[even[0:len(instance)/2]], 8)
-            instance = np.bitwise_or(instance[even[0:len(instance)/2]],
-                                     instance[odd[0:len(instance)/2]])
+            samples = int(len(instance)/2)
+            instance[even[0:samples]] = \
+                    np.left_shift(instance[even[0:samples]], 8)
+            instance = np.bitwise_or(instance[even[0:samples]],
+                                     instance[odd[0:samples]])
             
             # Visualize
             #plt.plot(instance); plt.draw(); plt.pause(.0001)
