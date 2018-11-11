@@ -15,7 +15,9 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
         
         # Configuration
-        self.spi.max_speed_hz = int(15.6E6)
+        self.spi.max_speed_hz = int(1E6)
+        self.spi.cshigh = False
+        self.spi.mode = 0b01
     
         # Launch SPI transmitter in separate thread
         self.audio_queue = Queue(maxsize = 1)
@@ -47,7 +49,7 @@ class audioSPI:
             while len(instance) < size*2: # 2 bytes per sample
                 
                 # Send/receive 1 byte for 1/2 audio sample
-                instance += self.spi.xfer2(payload)
+                instance += self.spi.xfer(payload)
                 payload = [0xAA]
             
             # Only one instance allowed in queue
