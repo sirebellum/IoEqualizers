@@ -235,7 +235,7 @@ if __name__ == "__main__":
                 
                 # Draw on first couple pixels of freq
                 image[idxs, 0:5] = 255
-                cv2.imshow('image',image); cv2.waitKey()
+                cv2.imshow('image',image); cv2.waitKey(1)
                 
         elif args.vis == 'True':
             cv2.imshow('image',image); cv2.waitKey(1)
