@@ -18,6 +18,7 @@ class audioSPI:
         self.spi.max_speed_hz = int(1E6)
         self.spi.cshigh = False
         self.spi.mode = 0b01
+        self.BLOCKSIZE = 1260 # number of mesages to send at once
 
         # Launch SPI transmitter in separate thread
         self.audio_queue = Queue(maxsize = 1)
@@ -41,11 +42,12 @@ class audioSPI:
             # Get feedback vector if there is one
             try:
                 payload = queuein.get_nowait()
+                payload = payload * int(self.BLOCKSIZE/len(payload))
             except:
-                payload = [0xAA] * 2 # Send 10101010 between fb vectors
+                payload = [0xAA] * self.BLOCKSIZE # Send 10101010 between fb vectors
 
             # Gather samples for instance
-            instance = self._transmit(payload, size)
+            instance = self._transmit(payload, size*2) # 2 bytes per sample
 
             # Only one instance allowed in queue
             try:
@@ -57,13 +59,13 @@ class audioSPI:
     def _transmit(self, payload, size):
 
         # Set up variables
-        instance = np.zeros(size*2, dtype=np.int8)
+        instance = np.zeros(size, dtype=np.int8)
         pl_size = len(payload)
-        _range = range(0, pl_size, size*2) #2 bytes per sample
+        _range = range(0, size, pl_size)
 
         # Send/receive for audio sample
         for x in _range:
-            instance[x:pl_size] = self.spi.xfer(payload)
+            instance[x:x+pl_size] = self.spi.xfer(payload)[0:pl_size]
 
         return instance
 
