@@ -56,11 +56,14 @@ class audioSPI:
     # Collect sample
     def _transmit(self, payload, size):
 
-        instance = list()
-        while len(instance) < size*2: # 2 bytes per sample
+        # Set up variables
+        instance = np.zeros(size*2, dtype=np.int8)
+        pl_size = len(payload)
+        _range = range(0, pl_size, size*2) #2 bytes per sample
 
-            # Send/receive for audio sample
-            instance += self.spi.xfer(payload)
+        # Send/receive for audio sample
+        for x in _range:
+            instance[x:pl_size] = self.spi.xfer(payload)
 
         return instance
 
@@ -112,7 +115,7 @@ if __name__ == "__main__":
             #plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
-            print( timer()-beg, ": ", set(instance) )
+            print( timer()-beg, ":", set(instance) )
 
     except KeyboardInterrupt:
         exit()
