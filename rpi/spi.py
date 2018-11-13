@@ -67,6 +67,7 @@ class audioSPI:
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import data_processing.audio_processing as ap
+    from timeit import default_timer as timer
 
     # Instantiate communicator
     comm = audioSPI()
@@ -89,6 +90,7 @@ if __name__ == "__main__":
     # Obtain and print samples until interrupted
     try:
         while True:
+            beg = timer()
 
             # Put vector
             comm.fb_queue.put( spi_vector.tolist() )
@@ -107,7 +109,7 @@ if __name__ == "__main__":
             #plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
-            print( set(instance) )
+            print( timer()-beg, ": ", set(instance) )
 
     except KeyboardInterrupt:
         exit()
