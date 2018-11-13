@@ -45,14 +45,7 @@ class audioSPI:
                 payload = [0xAA] * 2 # Send 10101010 between fb vectors
 
             # Gather samples for instance
-            instance = list()
-            while len(instance) < size*2: # 2 bytes per sample
-
-                # Send/receive 2 bytes at a time for audio sample
-                for x in range(0, 2, len(payload)):
-                    instance += self.spi.xfer(payload[x:x+1])
-                
-                payload = [0xAA] * 2
+            instance = self._transmit(payload, size)
 
             # Only one instance allowed in queue
             try:
@@ -60,6 +53,16 @@ class audioSPI:
             except:
                 pass
 
+    # Collect sample
+    def _transmit(self, payload, size):
+
+        instance = list()
+        while len(instance) < size*2: # 2 bytes per sample
+
+            # Send/receive for audio sample
+            instance += self.spi.xfer(payload)
+
+        return instance
 
     def __del__(self):
         self.spi.close() # close the port before exit
@@ -97,7 +100,7 @@ if __name__ == "__main__":
 
             # Get value
             instance = np.asarray( comm.audio_queue.get(), dtype=np.int16 )
-            
+
             # Convert 2 bytes to 1 audio sample
             samples = int(len(instance)/2)
             instance[even[0:samples]] = \
