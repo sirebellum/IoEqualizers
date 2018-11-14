@@ -20,6 +20,9 @@ class audioSPI:
         self.spi.mode = 0b01
         self.BLOCKSIZE = 1260 # number of mesages to send at once
 
+        # Variable set up
+        self._block = np.zeros(self.BLOCKSIZE, dtype=np.int16)
+
         # Launch SPI transmitter in separate thread
         self.audio_queue = Queue(maxsize = 1)
         self.fb_queue = Queue(maxsize = 1)
@@ -35,6 +38,8 @@ class audioSPI:
 
         # How many samples to acquire before returning an instance
         size = queuein.get()
+        _range = range(0, size*2, self.BLOCKSIZE) # 2 bytes per sample
+        instance = np.zeros(size*2, dtype=np.int16)
 
         # Run continuously in separate thread
         while True:
@@ -47,7 +52,9 @@ class audioSPI:
                 payload = [0xAA] * self.BLOCKSIZE # Send 10101010 between fb vectors
 
             # Gather samples for instance
-            instance = self._transmit(payload, size*2) # 2 bytes per sample
+            for x in _range:
+                self._transmit(payload)
+                instance[x:x+self.BLOCKSIZE] = self._block[0:self.BLOCKSIZE]
 
             # Only one instance allowed in queue
             try:
@@ -56,18 +63,10 @@ class audioSPI:
                 pass
 
     # Collect sample
-    def _transmit(self, payload, size):
-
-        # Set up variables
-        instance = np.zeros(size, dtype=np.int16)
-        pl_size = len(payload)
-        _range = range(0, size, pl_size)
+    def _transmit(self, payload):
 
         # Send/receive for audio sample
-        for x in _range:
-            instance[x:x+pl_size] = self.spi.xfer(payload)[0:pl_size]
-
-        return instance
+        self._block[0:self.BLOCKSIZE] = self.spi.xfer(payload)[0:self.BLOCKSIZE]
 
     def __del__(self):
         self.spi.close() # close the port before exit
