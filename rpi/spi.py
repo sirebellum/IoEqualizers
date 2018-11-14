@@ -10,7 +10,7 @@ from multiprocessing import Queue, Process
 # Uses SPI to send feedback vectors and receive audio
 class audioSPI:
 
-    def __init__(self):
+    def __init__(self, size):
         self.spi = spidev.SpiDev() # create spi object
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
@@ -18,29 +18,27 @@ class audioSPI:
         self.spi.max_speed_hz = int(8E5)
         self.spi.cshigh = False
         self.spi.mode = 0b01
-        self.BLOCKSIZE = 1260 # number of mesages to send at once
+        self.BLOCKSIZE = 3780 # number of mesages to send at once
 
         # Variable set up
-        self._block = np.zeros(self.BLOCKSIZE, dtype=np.int16)
+        self.size = size # How many samples to acquire before returning an instance
 
         # Launch SPI transmitter in separate thread
         self.audio_queue = Queue(maxsize = 1)
         self.fb_queue = Queue(maxsize = 1)
-        thread = Process(target=self.transmitter,
-                         args=(self.fb_queue,
-                               self.audio_queue),
-                         daemon = True)
-        thread.start()
-
+        self.thread = Process(target=self._transmitter,
+                              args=(self.fb_queue,
+                                    self.audio_queue),
+                              daemon = True)
+        self.thread.start()
+                              
     # Meant to be run in a separate thread. Collects audio samples
-    # until size received and outputs instance to queue.
-    def transmitter(self, queuein, queueout):
-
-        # How many samples to acquire before returning an instance
-        size = queuein.get()
-        _range = range(0, size*2, self.BLOCKSIZE) # 2 bytes per sample
-        instance = np.zeros(size*2, dtype=np.int16)
-
+    def _transmitter(self, queuein, queueout):
+    
+        # Variable setup
+        _block = np.zeros(self.BLOCKSIZE, dtype=np.int16)
+        filler = [0xAA] * self.BLOCKSIZE # Send 10101010 between fb vectors
+    
         # Run continuously in separate thread
         while True:
 
@@ -49,24 +47,36 @@ class audioSPI:
                 payload = queuein.get_nowait()
                 payload = payload * int(self.BLOCKSIZE/len(payload))
             except:
-                payload = [0xAA] * self.BLOCKSIZE # Send 10101010 between fb vectors
+                payload = filler
 
-            # Gather samples for instance
-            for x in _range:
-                self._transmit(payload)
-                instance[x:x+self.BLOCKSIZE] = self._block[0:self.BLOCKSIZE]
+            # Send/receive for audio sample
+            _block[0:self.BLOCKSIZE] = self.spi.xfer(payload)[0:self.BLOCKSIZE]
 
             # Only one instance allowed in queue
             try:
-                queueout.put(instance, block=False)
+                queueout.put(_block, block=False)
             except:
                 pass
 
+                
     # Collect sample
-    def _transmit(self, payload):
-
-        # Send/receive for audio sample
-        self._block[0:self.BLOCKSIZE] = self.spi.xfer(payload)[0:self.BLOCKSIZE]
+    def transmit(self, payload):
+        
+        # Variable setup
+        _instance = np.zeros(self.size*2, dtype=np.int16) # 2 bytes per sample
+        
+        # Transmit until instance is full
+        while _instance[-1] == 0:
+        
+            _range = range(0, size*2, self.BLOCKSIZE) # 2 bytes per sample
+            
+            # Gather samples for instance
+            for x in _range:
+                self.fb_queue.put(payload)
+                _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
+                
+        return _instance
+        
 
     def __del__(self):
         self.spi.close() # close the port before exit
@@ -76,13 +86,13 @@ if __name__ == "__main__":
     import data_processing.audio_processing as ap
     from timeit import default_timer as timer
 
-    # Instantiate communicator
-    comm = audioSPI()
-
     # Choose instance size to return
     sample_rate = 44100
     instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-    comm.fb_queue.put(int(instance_samples/2))
+    size = int(instance_samples/2)
+    
+    # Instantiate communicator
+    comm = audioSPI(size)
 
     # Prep vector to send
     vector = [1]+[0]*41
@@ -99,11 +109,8 @@ if __name__ == "__main__":
         while True:
             beg = timer()
 
-            # Put vector
-            comm.fb_queue.put( spi_vector.tolist() )
-
             # Get instance and delete values that equal 0xAA
-            instance = comm.audio_queue.get()
+            instance = comm.transmit(spi_vector.tolist())
             del_indices = np.where( instance==0xAA )
             instance = np.delete(instance, del_indices)
 
