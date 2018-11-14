@@ -68,13 +68,18 @@ class audioSPI:
         # Transmit until instance is full
         while _instance[-1] == 0:
         
-            _range = range(0, size*2, self.BLOCKSIZE) # 2 bytes per sample
+            _range = range(0, self.size*2, self.BLOCKSIZE) # 2 bytes per sample
             
             # Gather samples for instance
             for x in _range:
                 self.fb_queue.put(payload)
                 _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
-                
+
+            # Delete invalid messages
+            del_indices = np.where( _instance==0xAA )
+            _instance = np.delete(_instance, del_indices)
+            break
+
         return _instance
         
 
@@ -111,8 +116,6 @@ if __name__ == "__main__":
 
             # Get instance and delete values that equal 0xAA
             instance = comm.transmit(spi_vector.tolist())
-            del_indices = np.where( instance==0xAA )
-            instance = np.delete(instance, del_indices)
 
             # Convert 2 bytes to 1 audio sample
             samples = int(len(instance)/2)
