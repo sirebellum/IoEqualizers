@@ -15,7 +15,7 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
         # Configuration
-        self.spi.max_speed_hz = int(4.88E5)
+        self.spi.max_speed_hz = int(2E6)
         self.spi.cshigh = False
         self.spi.mode = 0b01
         self.BLOCKSIZE = 3780 # number of mesages to send at once
@@ -37,7 +37,7 @@ class audioSPI:
     
         # Variable setup
         _block = np.zeros(self.BLOCKSIZE, dtype=np.int16)
-        filler = [0xAA] * self.BLOCKSIZE # Send 10101010 between fb vectors
+        _filler = [0xAA] * self.BLOCKSIZE # Send 10101010 between fb vectors
     
         # Run continuously in separate thread
         while True:
@@ -47,10 +47,10 @@ class audioSPI:
                 payload = queuein.get_nowait()
                 payload = payload * int(self.BLOCKSIZE/len(payload))
             except:
-                payload = filler
+                payload = _filler
 
             # Send/receive for audio sample
-            _block[0:self.BLOCKSIZE] = self.spi.xfer(payload)[0:self.BLOCKSIZE]
+            _block[:self.BLOCKSIZE] = self.spi.xfer(payload)[:self.BLOCKSIZE]
 
             # Only one instance allowed in queue
             try:
@@ -60,26 +60,30 @@ class audioSPI:
 
                 
     # Collect sample
-    def transmit(self, payload):
+    def transmit(self, payload=[0xAA]):
         
         # Variable setup
         _instance = np.zeros(self.size*2, dtype=np.int16) # 2 bytes per sample
         
         # Transmit until instance is full
-        while _instance[-1] == 0:
+        _last = 0
+        while _last <= self.size*2 - self.BLOCKSIZE:
         
-            _range = range(0, self.size*2, self.BLOCKSIZE) # 2 bytes per sample
+            _range = range(_last,
+                           self.size*2 - self.BLOCKSIZE+1, # 2 bytes per sample, don't overfill
+                           self.BLOCKSIZE)
             
             # Gather samples for instance
             for x in _range:
                 self.fb_queue.put(payload)
                 _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
 
-            # Delete invalid messages
-            del_indices = np.where( _instance==0x0055 )
-            _instance = np.delete(_instance, del_indices)
-            break
-
+            # Remove invalid messages
+            _idxs = np.where( _instance!=0x0055 )[0]
+            _instance[:len(_idxs)] = _instance[_idxs]
+            _instance[len(_idxs):] = 0x0055
+            _last = len(_idxs)
+            
         return _instance
         
 
@@ -125,7 +129,7 @@ if __name__ == "__main__":
                                      instance[odd[0:samples]])
 
             # Visualize
-            #plt.plot(instance[0:1000]); plt.draw(); plt.pause(.0001)
+            #plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
             print( timer()-beg, ":", len(instance))
