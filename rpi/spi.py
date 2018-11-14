@@ -15,7 +15,7 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
         # Configuration
-        self.spi.max_speed_hz = int(8E5)
+        self.spi.max_speed_hz = int(4.88E5)
         self.spi.cshigh = False
         self.spi.mode = 0b01
         self.BLOCKSIZE = 3780 # number of mesages to send at once
@@ -76,7 +76,7 @@ class audioSPI:
                 _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
 
             # Delete invalid messages
-            del_indices = np.where( _instance==0xAA )
+            del_indices = np.where( _instance==0x0055 )
             _instance = np.delete(_instance, del_indices)
             break
 
@@ -114,7 +114,7 @@ if __name__ == "__main__":
         while True:
             beg = timer()
 
-            # Get instance and delete values that equal 0xAA
+            # Get instance
             instance = comm.transmit(spi_vector.tolist())
 
             # Convert 2 bytes to 1 audio sample
@@ -125,11 +125,11 @@ if __name__ == "__main__":
                                      instance[odd[0:samples]])
 
             # Visualize
-            plt.plot(instance); plt.draw(); plt.pause(.0001)
+            #plt.plot(instance[0:1000]); plt.draw(); plt.pause(.0001)
 
             # Print
             print( timer()-beg, ":", len(instance))
-            import pdb;pdb.set_trace()
+            #import pdb;pdb.set_trace()
 
     except KeyboardInterrupt:
         exit()
