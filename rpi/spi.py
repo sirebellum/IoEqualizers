@@ -125,10 +125,11 @@ if __name__ == "__main__":
                                      instance[odd[0:samples]])
 
             # Visualize
-            #plt.plot(instance); plt.draw(); plt.pause(.0001)
+            plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
-            print( timer()-beg, ":", set(instance) , len(instance))
+            print( timer()-beg, ":", len(instance))
+            import pdb;pdb.set_trace()
 
     except KeyboardInterrupt:
         exit()
