@@ -15,7 +15,7 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
         # Configuration
-        self.spi.max_speed_hz = int(3E6)
+        self.spi.max_speed_hz = int(9.76E5)
         self.spi.cshigh = False
         self.spi.mode = 0b01
         self.BLOCKSIZE = 3780 # number of mesages to send at once
@@ -63,26 +63,22 @@ class audioSPI:
     def transmit(self, payload=[0xAA]):
         
         # Variable setup
-        _instance = np.full(self.size*2, 0x0055, dtype=np.int16) # 2 bytes per sample
+        _instance = np.zeros(self.size*2, dtype=np.int16) # 2 bytes per sample
         
-        # Transmit until instance is full
-        _last = 0
-        while _last <= self.size*2 - self.BLOCKSIZE:
-            
-            _range = range(_last,
-                           self.size*2 - self.BLOCKSIZE+1, # 2 bytes per sample, don't overfill
-                           self.BLOCKSIZE)
-            
-            # Gather samples for instance
-            for x in _range:
-                self.fb_queue.put(payload)
-                _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
-            
-            # Remove invalid messages
-            _idxs = np.where( _instance!=0x0055 )[0]
-            _instance[:len(_idxs)] = _instance[_idxs]
-            _instance[len(_idxs):] = 0x0055
-            _last = len(_idxs)
+        _range = range(0,
+                       self.size*2, # 2 bytes per sample
+                       self.BLOCKSIZE)
+        
+        # Gather samples for instance
+        for x in _range:
+            self.fb_queue.put(payload)
+            _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
+        
+        # Remove invalid messages
+        #_idxs = np.where( _instance!=0x0055 )[0]
+        #_instance[:len(_idxs)] = _instance[_idxs]
+        #_instance[len(_idxs):] = 0x0055
+        #_last = len(_idxs)
             
         return _instance
         
@@ -129,7 +125,7 @@ if __name__ == "__main__":
                                      instance[odd[0:samples]])
 
             # Visualize
-            #plt.plot(instance); plt.draw(); plt.pause(.0001)
+            plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
             print( timer()-beg, ":", len(instance))
