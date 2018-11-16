@@ -116,13 +116,13 @@ if __name__ == "__main__":
     if args.wav == 'spi':
         import rpi.spi as spi
         
-        # Instantiate communicator
-        comm = spi.audioSPI()
-    
         # Choose instance size to return
         sample_rate = 44100
         instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
-        comm.fb_queue.put(int(instance_samples*overlap))
+        size = int(instance_samples*overlap)
+        
+        # Instantiate communicator
+        comm = spi.audioSPI(size)
         
     ### If operating on wav
     else:
@@ -153,11 +153,12 @@ if __name__ == "__main__":
     
     ### Detect feedback
     fft = 0
+    spi_vector = [0xAA]
     while fft is not None:
         
         # SPI
         if args.wav == 'spi':
-            this_fft = np.asarray( comm.audio_queue.get() )
+            this_fft = comm.transmit(spi_vector)
             samples = int(len(this_fft)/2) # 2 bytes per sample
             
             # Convert 2 bytes to 1 audio sample
@@ -178,12 +179,12 @@ if __name__ == "__main__":
         prev_fft = this_fft
         
         # Volume thresholding
-        threshold = 2350
-        fft_time_samples = len(fft[0])
-        total_fft_volume = sum(sum(abs(fft)))
-        fft_volume = total_fft_volume/fft_time_samples
-        if fft_volume < threshold or fft_volume == float('inf'):
-            continue # Don't even process
+        #threshold = 2350
+        #fft_time_samples = len(fft[0])
+        #total_fft_volume = sum(sum(abs(fft)))
+        #fft_volume = total_fft_volume/fft_time_samples
+        #if fft_volume < threshold or fft_volume == float('inf'):
+        #    continue # Don't even process
         
         # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
@@ -218,10 +219,7 @@ if __name__ == "__main__":
                 # Format vector for SPI
                 spi_vector = np.ones(vectors.shape[1]+6, dtype=np.int8)
                 spi_vector[3:45] = vectors[0]
-                spi_vector = np.packbits(spi_vector)
-                
-                # Send
-                comm.fb_queue.put(spi_vector.tolist())
+                spi_vector = np.packbits(spi_vector).tolist()
             
             # Visualization
             if args.vis == 'True':               
@@ -238,4 +236,5 @@ if __name__ == "__main__":
                 cv2.imshow('image',image); cv2.waitKey(1)
                 
         elif args.vis == 'True':
+            spi_vector = [0xAA]
             cv2.imshow('image',image); cv2.waitKey(1)
