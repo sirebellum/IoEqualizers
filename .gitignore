@@ -1,2 +1,3 @@
 CNN/models/*
 *__pycache__/
+spi/PIC/*
