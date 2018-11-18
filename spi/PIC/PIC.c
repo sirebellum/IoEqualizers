@@ -151,7 +151,7 @@ void intpt _SPI1Interrupt(void) {
     payload = SPI1BUF;
     
     // Send
-    SPI1BUF = test;
+    SPI1BUF = *audio;
     
     // Check for feedback response and populate vector if not full
     if ((payload != 0xAAAA) && !fbFull) {
@@ -193,7 +193,7 @@ void intpt _T1Interrupt(void) {
     
     // Read audio
     readADC();
-    test++;
+    //test++;
     
     // Set filters based on feedback vector
     if (fbFull) {
