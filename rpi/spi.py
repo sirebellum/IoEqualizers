@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # Prep vector to send
     vector = [1]+[0]*41
     spi_vector = np.ones(48, dtype=np.int8)
-    spi_vector[3:45] = np.asarray(vector, dtype=np.int8)
+    spi_vector[:len(vector)] = np.asarray(vector, dtype=np.int8)
     spi_vector = np.packbits(spi_vector)
 
     # Get all even/odd numbers up to instance size
