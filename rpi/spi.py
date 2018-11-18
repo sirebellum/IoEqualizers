@@ -14,17 +14,20 @@ class audioSPI:
         self.spi = spidev.SpiDev() # create spi object
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
-        # Configuration
+        # SPI Configuration
         self.spi.max_speed_hz = int(9.76E5)
         self.spi.cshigh = False
         self.spi.mode = 0b01
+
+        # Variable setup
         self.BLOCKSIZE = 3780 # number of mesages to send at once
-
-        # Variable set up
         self.size = size # How many samples to acquire before returning an instance
-
+        self.blocks = int(self.size/self.BLOCKSIZE) # blocks per instance
+        self._instance = np.zeros(self.size*2, dtype=np.int16) # 2 bytes per sample
+        self._range = range(0, self.size*2, self.BLOCKSIZE)
+        
         # Launch SPI transmitter in separate thread
-        self.audio_queue = Queue(maxsize = 1)
+        self.audio_queue = Queue(maxsize = self.blocks)
         self.fb_queue = Queue(maxsize = 1)
         self.thread = Process(target=self._transmitter,
                               args=(self.fb_queue,
@@ -52,27 +55,19 @@ class audioSPI:
             # Send/receive for audio sample
             _block[:self.BLOCKSIZE] = self.spi.xfer(payload)[:self.BLOCKSIZE]
 
-            # Only one instance allowed in queue
+            # Fill queue : update with newest block if full
             try:
                 queueout.put(_block, block=False)
             except:
-                pass
+                _ = queueout.get()
+                queueout.put(_block, block=False)
 
                 
     # Collect sample
-    def transmit(self, payload=[0xAA]):
-        
-        # Variable setup
-        _instance = np.zeros(self.size*2, dtype=np.int16) # 2 bytes per sample
-        
-        _range = range(0,
-                       self.size*2, # 2 bytes per sample
-                       self.BLOCKSIZE)
-        
+    def transmit(self):
         # Gather samples for instance
-        for x in _range:
-            self.fb_queue.put(payload)
-            _instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
+        for x in self._range:
+            self._instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
         
         # Remove invalid messages
         #_idxs = np.where( _instance!=0x0055 )[0]
@@ -80,8 +75,14 @@ class audioSPI:
         #_instance[len(_idxs):] = 0x0055
         #_last = len(_idxs)
             
-        return _instance
-        
+        return self._instance
+    
+    # Update fb payload
+    def put_payload(self, payload):
+        try:
+            self.fb_queue.put(payload, block=False)
+        except:
+            print("FB queue full!")
 
     def __del__(self):
         self.spi.close() # close the port before exit
@@ -115,7 +116,8 @@ if __name__ == "__main__":
             beg = timer()
 
             # Get instance
-            instance = comm.transmit(spi_vector.tolist())
+            comm.put_payload(spi_vector.tolist())
+            instance = comm.transmit()
 
             # Convert 2 bytes to 1 audio sample
             samples = int(len(instance)/2)
