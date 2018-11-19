@@ -114,7 +114,7 @@ if __name__ == "__main__":
     
     ### If operating on spi
     if args.wav == 'spi':
-        import rpi.spi as spi
+        import spi.rpi as spi
         
         # Choose instance size to return
         sample_rate = 44100
@@ -208,11 +208,11 @@ if __name__ == "__main__":
             if args.wav == 'spi':
                 # Format vector for SPI
                 spi_vector = np.ones(vectors.shape[1]+6, dtype=np.int8)
-                spi_vector[3:45] = vectors[0]
+                spi_vector[:len(vectors[0])] = vectors[0]
                 spi_vector = np.packbits(spi_vector).tolist()
                 
                 # Send to slave
-                comm.put_payload(spi_vector.tolist())
+                comm.put_payload(spi_vector)
             
             # Visualization
             if args.vis == 'True':               
