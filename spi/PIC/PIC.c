@@ -205,7 +205,7 @@ void init_TIMER(void) {
 
 // Timer interrupt
 int8_t value = 0;
-int16_t test = 0;
+//int16_t test = 0;
 void intpt _T1Interrupt(void) {
     
     // Timer oscillation
@@ -214,15 +214,17 @@ void intpt _T1Interrupt(void) {
     TMR1 = 0;
     
     // Read audio
-    //readADC();
-    test++;
-    if ((test & 0x5500) == 0x5500)
-         test = 0;
+    readADC();
+    
+    // Testing
+    //test++;
+    //if ((test & 0x5500) == 0x5500)
+    //     test = 0;
     
     // Fill buffer if not full
     if (buf < &(buffer[buf_size-1]))
         buf++;
-    *buf = test;
+    *buf = ADCValue;
     
     // Set filters based on feedback vector
     if (fbFull) {
