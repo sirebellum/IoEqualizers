@@ -147,10 +147,6 @@ if __name__ == "__main__":
     # First half of instance
     prev_fft = np.asarray( [0]*int(instance_samples*overlap) )
     
-    # Get all even/odd numbers up to instance size and beyond
-    even = np.arange(start=0, stop=instance_samples+100, step=2)
-    odd  = np.arange(start=1, stop=instance_samples+100, step=2)
-    
     ### Detect feedback
     fft = 0
     spi_vector = [0xAA]
@@ -158,14 +154,8 @@ if __name__ == "__main__":
         
         # SPI
         if args.wav == 'spi':
-            this_fft = comm.transmit(spi_vector)
-            samples = int(len(this_fft)/2) # 2 bytes per sample
+            this_fft = comm.transmit()
             
-            # Convert 2 bytes to 1 audio sample
-            this_fft[even[0:samples]] = \
-                    np.left_shift(this_fft[even[0:samples]], 8)
-            this_fft = np.bitwise_or(this_fft[even[0:samples]],
-                                     this_fft[odd[0:samples]])
         # Wav
         else:
             # Get data chunks from audio source and grow fft sample
@@ -220,6 +210,9 @@ if __name__ == "__main__":
                 spi_vector = np.ones(vectors.shape[1]+6, dtype=np.int8)
                 spi_vector[3:45] = vectors[0]
                 spi_vector = np.packbits(spi_vector).tolist()
+                
+                # Send to slave
+                comm.put_payload(spi_vector.tolist())
             
             # Visualization
             if args.vis == 'True':               
@@ -236,5 +229,4 @@ if __name__ == "__main__":
                 cv2.imshow('image',image); cv2.waitKey(1)
                 
         elif args.vis == 'True':
-            spi_vector = [0xAA]
             cv2.imshow('image',image); cv2.waitKey(1)
