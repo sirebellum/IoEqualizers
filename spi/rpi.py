@@ -15,7 +15,7 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
         # SPI Configuration
-        self.spi.max_speed_hz = int(9.76E5)
+        self.spi.max_speed_hz = int(1.953E6)
         self.spi.cshigh = False
         self.spi.mode = 0b01
 
@@ -27,7 +27,6 @@ class audioSPI:
         
         # Arrays for data collection
         self._instance = np.zeros(self.bytes, dtype=np.int16)
-        self._range = range(0, self.bytes, self.BLOCKSIZE)
         self.instance = np.zeros(self.size, dtype=np.int16)
         
         # All even/odd numbers up to bytes for merging samples
@@ -74,20 +73,27 @@ class audioSPI:
     # Collect sample
     def transmit(self):
     
-        # Gather samples for instance
-        for x in self._range:
-            self._instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
-        
+        _last = 0
+        while _last <= self.bytes - self.BLOCKSIZE:
+            
+            _range = range(_last,
+                           self.bytes - self.BLOCKSIZE+1, #don't overfill
+                           self.BLOCKSIZE)
+                           
+            # Gather samples for instance
+            for x in _range:
+                self._instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
+            
+            # Remove filler messages
+            _idxs = np.where( self._instance!=0x0055 )[0]
+            self._instance[:len(_idxs)] = self._instance[_idxs]
+            self._instance[len(_idxs):] = 0x0055
+            _last = len(_idxs)
+            
         # Convert 2 bytes to 1 audio sample
         self._instance[self._even] = np.left_shift(self._instance[self._even], 8)
         self.instance = np.bitwise_or(self._instance[self._even],
                                       self._instance[self._odd])
-        
-        # Remove filler messages
-        #_idxs = np.where( _instance!=0x0055 )[0]
-        #_instance[:len(_idxs)] = _instance[_idxs]
-        #_instance[len(_idxs):] = 0x0055
-        #_last = len(_idxs)
             
         return self.instance
     

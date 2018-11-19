@@ -46,8 +46,17 @@
 int16_t ADCValue = 0; // Value pulled from ADC Buffer
 
 // SPI Transmission Content
-int16_t *audio = &ADCValue; // Audio sample
-uint16_t payload;           // From master
+int16_t *audio;         // Oldest audio sample
+int16_t *buf;           // Newest audio sample
+#define buf_size 700
+int16_t buffer[buf_size];    // Buffer to store audio samples between spi chunks
+uint16_t payload;       // From master
+
+// Sets pointers back to beginning of buffer
+void reset_buffer() {
+    audio = &buffer;
+    buf = &buffer;
+}
 
 // Feedback variables
 uint16_t fb0, fb1, fb2;   // Components of feedback vector
@@ -142,16 +151,26 @@ void init_SPI(void) {
     SPI1STATbits.SPIEN = 1;
 }
 
-// Test variables
-int16_t test = 0;
 // Interrupt based SPI send/receive
 void intpt _SPI1Interrupt(void) {
     
     // Receive
     payload = SPI1BUF;
     
-    // Send
-    SPI1BUF = *audio;
+    // Send if audio behind buffer
+    if (audio < buf) {
+        
+        if (*audio & 0x0055 == 0x0055) // Don't send filler
+            *audio = *audio + 1;
+        
+        SPI1BUF = *audio;
+        audio++;
+    }
+    // Else send filler and reset buffer
+    else {
+        SPI1BUF = 0x5555;
+        reset_buffer();
+    }
     
     // Check for feedback response and populate vector if not full
     if ((payload != 0xAAAA) && !fbFull) {
@@ -182,8 +201,9 @@ void init_TIMER(void) {
     T1CONbits.TON = 1; // Start timer
 }
 
-// Timer interrupt 
+// Timer interrupt
 int8_t value = 0;
+int16_t test = -2048;
 void intpt _T1Interrupt(void) {
     
     // Timer oscillation
@@ -194,6 +214,12 @@ void intpt _T1Interrupt(void) {
     // Read audio
     readADC();
     //test++;
+    //if (test >= 2048) test = -2048;
+    
+    // Fill buffer if not full
+    *buf = ADCValue;
+    if (buf < &(buffer[buf_size-1]))
+        buf++;
     
     // Set filters based on feedback vector
     if (fbFull) {
@@ -206,6 +232,9 @@ void intpt _T1Interrupt(void) {
 
 
 void main() {     
+    
+    // Initialize audio buffer
+    reset_buffer();
     
     // Initialize all modules
     init_SPI();
