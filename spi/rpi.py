@@ -21,10 +21,18 @@ class audioSPI:
 
         # Variable setup
         self.BLOCKSIZE = 3780 # number of mesages to send at once
-        self.size = size # How many samples to acquire before returning an instance
+        self.size = size # number of samples to acquire before returning an instance
+        self.bytes = size*2 # 2 bytes per sample
         self.blocks = int(self.size/self.BLOCKSIZE) # blocks per instance
-        self._instance = np.zeros(self.size*2, dtype=np.int16) # 2 bytes per sample
-        self._range = range(0, self.size*2, self.BLOCKSIZE)
+        
+        # Arrays for data collection
+        self._instance = np.zeros(self.bytes, dtype=np.int16)
+        self._range = range(0, self.bytes, self.BLOCKSIZE)
+        self.instance = np.zeros(self.size, dtype=np.int16)
+        
+        # All even/odd numbers up to bytes for merging samples
+        self._even = np.arange(start=0, stop=self.bytes, step=2)
+        self._odd  = np.arange(start=1, stop=self.bytes, step=2)
         
         # Launch SPI transmitter in separate thread
         self.audio_queue = Queue(maxsize = self.blocks)
@@ -65,17 +73,23 @@ class audioSPI:
                 
     # Collect sample
     def transmit(self):
+    
         # Gather samples for instance
         for x in self._range:
             self._instance[x:x+self.BLOCKSIZE] = self.audio_queue.get()
         
-        # Remove invalid messages
+        # Convert 2 bytes to 1 audio sample
+        self._instance[self._even] = np.left_shift(self._instance[self._even], 8)
+        self.instance = np.bitwise_or(self._instance[self._even],
+                                      self._instance[self._odd])
+        
+        # Remove filler messages
         #_idxs = np.where( _instance!=0x0055 )[0]
         #_instance[:len(_idxs)] = _instance[_idxs]
         #_instance[len(_idxs):] = 0x0055
         #_last = len(_idxs)
             
-        return self._instance
+        return self.instance
     
     # Update fb payload
     def put_payload(self, payload):
@@ -106,10 +120,6 @@ if __name__ == "__main__":
     spi_vector[:len(vector)] = np.asarray(vector, dtype=np.int8)
     spi_vector = np.packbits(spi_vector)
 
-    # Get all even/odd numbers up to instance size
-    even = np.arange(start=0, stop=instance_samples+100, step=2)
-    odd  = np.arange(start=1, stop=instance_samples+100, step=2)
-
     # Obtain and print samples until interrupted
     try:
         while True:
@@ -118,13 +128,6 @@ if __name__ == "__main__":
             # Get instance
             comm.put_payload(spi_vector.tolist())
             instance = comm.transmit()
-
-            # Convert 2 bytes to 1 audio sample
-            samples = int(len(instance)/2)
-            instance[even[0:samples]] = \
-                    np.left_shift(instance[even[0:samples]], 8)
-            instance = np.bitwise_or(instance[even[0:samples]],
-                                     instance[odd[0:samples]])
 
             # Visualize
             plt.plot(instance); plt.draw(); plt.pause(.0001)
