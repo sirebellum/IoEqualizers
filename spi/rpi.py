@@ -94,6 +94,10 @@ class audioSPI:
         self._instance[self._even] = np.left_shift(self._instance[self._even], 8)
         self.instance = np.bitwise_or(self._instance[self._even],
                                       self._instance[self._odd])
+
+        # 0 out filler messages
+        _idxs = np.where( self.instance==0x5555 )[0]
+        self.instance[_idxs] = 0
             
         return self.instance
     
