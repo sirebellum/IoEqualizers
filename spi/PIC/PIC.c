@@ -48,14 +48,15 @@ int16_t ADCValue = 0; // Value pulled from ADC Buffer
 // SPI Transmission Content
 int16_t *audio;         // Oldest audio sample
 int16_t *buf;           // Newest audio sample
-#define buf_size 700
+#define buf_size 900
 int16_t buffer[buf_size];    // Buffer to store audio samples between spi chunks
 uint16_t payload;       // From master
 
 // Sets pointers back to beginning of buffer
 void reset_buffer() {
-    audio = &buffer;
-    buf = &buffer;
+    buffer[0] = 0x5555;
+    audio = &buffer[1];
+    buf = &buffer[0];
 }
 
 // Feedback variables
@@ -157,18 +158,19 @@ void intpt _SPI1Interrupt(void) {
     // Receive
     payload = SPI1BUF;
     
-    // Send if audio behind buffer
-    if (audio < buf) {
+    // Send Audio and increment if audio behind buffer
+    if (audio <= buf) {
         
-        if (*audio & 0x0055 == 0x0055) // Don't send filler
+        // Don't accidentally send filler
+        if ( ((0x00FF&*audio) ^ 0x0055) == 0 )
             *audio = *audio + 1;
         
         SPI1BUF = *audio;
         audio++;
     }
-    // Else send filler and reset buffer
+    // Send Filler if audio ahead of buffer
     else {
-        SPI1BUF = 0x5555;
+        SPI1BUF = buffer[0];
         reset_buffer();
     }
     
@@ -203,7 +205,7 @@ void init_TIMER(void) {
 
 // Timer interrupt
 int8_t value = 0;
-int16_t test = -2048;
+int16_t test = 0;
 void intpt _T1Interrupt(void) {
     
     // Timer oscillation
@@ -212,14 +214,15 @@ void intpt _T1Interrupt(void) {
     TMR1 = 0;
     
     // Read audio
-    readADC();
-    //test++;
-    //if (test >= 2048) test = -2048;
+    //readADC();
+    test++;
+    if ((test & 0x5500) == 0x5500)
+         test = 0;
     
     // Fill buffer if not full
-    *buf = ADCValue;
     if (buf < &(buffer[buf_size-1]))
         buf++;
+    *buf = test;
     
     // Set filters based on feedback vector
     if (fbFull) {
@@ -250,9 +253,9 @@ void main() {
     reset_feedback();
     while (1) {
         
-        // Ensure feedback vector integrity
-        if (0x003F & *(f2.data) != 0x003F
-                  && *(f2.data) != 0)
+        // Ensure feedback vector footer integrity
+        if ((0x003F & *(f2.data)) != 0x003F
+                   && *(f2.data)  != 0)
             reset_feedback();
         
         // Check if feedback exists
