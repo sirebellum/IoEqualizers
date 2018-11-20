@@ -166,7 +166,7 @@ if __name__ == "__main__":
         # Convert to image
         fft = np.asarray(np.concatenate((prev_fft,this_fft)), dtype=np.int16)
         fft = ap.convertWav(fft, sample_rate=sample_rate)[0]
-        prev_fft = this_fft
+        prev_fft = this_fft[len(this_fft)-size:]
         
         # Volume thresholding
         #threshold = 2350

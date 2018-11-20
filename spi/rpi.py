@@ -15,14 +15,14 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
         # SPI Configuration
-        self.spi.max_speed_hz = int(9.76E5)
+        self.spi.max_speed_hz = int(1.953E6)
         self.spi.cshigh = False
         self.spi.mode = 0b01
 
         # Variable setup
         self.BLOCKSIZE = 3780 # number of mesages to send at once
         self.size = size # number of samples to acquire before returning an instance
-        self.bytes = size*2 # 2 bytes per sample
+        self.bytes = size*2 + self.BLOCKSIZE # 2 bytes per sample + extra for filler
         self.blocks = int(self.size/self.BLOCKSIZE) # blocks per instance
         
         # Arrays for data collection
@@ -95,10 +95,10 @@ class audioSPI:
         self.instance = np.bitwise_or(self._instance[self._even],
                                       self._instance[self._odd])
 
-        # 0 out filler messages
+        # remove filler messages
         _idxs = np.where( self.instance==0x5555 )[0]
-        self.instance[_idxs] = 0
-            
+        self.instance = np.delete(self.instance, _idxs)
+        
         return self.instance
     
     # Update fb payload
@@ -143,7 +143,7 @@ if __name__ == "__main__":
             plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
-            print( timer()-beg, ":", len(instance))
+            print( timer()-beg, ":", size-len(instance))
             #import pdb;pdb.set_trace()
 
     except KeyboardInterrupt:
