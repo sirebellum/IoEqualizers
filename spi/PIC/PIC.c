@@ -211,7 +211,7 @@ void init_TIMER(void) {
     T1CONbits.TCS = 0;      // Internal Clock
     T1CONbits.TCKPS = 0b00; // No prescaler
     
-    PR1 = 0x02C4; // run timer up to this value
+    PR1 = 0x02B0; // run timer up to this value
     TMR1 = 0;
     
     // Interrupt clear and setup
