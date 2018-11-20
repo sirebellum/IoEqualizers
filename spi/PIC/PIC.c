@@ -7,30 +7,45 @@
 
 // 'C' source line config statements
 
-// FOSC
-#pragma config FOSFPR = FRC_PLL8        // Oscillator (FRC w/PLL 8x)
-#pragma config FCKSMEN = CSW_FSCM_OFF   // Clock Switching and Monitor (Sw Disabled, Mon Disabled)
+// FBS
+#pragma config BWRP = WRPROTECT_OFF     // Boot Segment Write Protect (Boot Segment may be written)
+#pragma config BSS = NO_FLASH           // Boot Segment Program Flash Code Protection (No Boot program Flash segment)
+#pragma config RBS = NO_RAM             // Boot Segment RAM Protection (No Boot RAM)
 
-// FWDT
-#pragma config FWPSB = WDTPSB_16        // WDT Prescaler B (1:16)
-#pragma config FWPSA = WDTPSA_512       // WDT Prescaler A (1:512)
-#pragma config WDT = WDT_OFF            // Watchdog Timer (Disabled)
-
-// FBORPOR
-#pragma config FPWRT = PWRT_64          // POR Timer Value (64ms)
-#pragma config BODENV = BORV20          // Brown Out Voltage (Reserved)
-#pragma config BOREN = PBOR_ON          // PBOR Enable (Enabled)
-#pragma config MCLRE = MCLR_EN          // Master Clear Enable (Enabled)
+// FSS
+#pragma config SWRP = WRPROTECT_OFF     // Secure Segment Program Write Protect (Secure segment may be written)
+#pragma config SSS = NO_FLASH           // Secure Segment Program Flash Code Protection (No Secure Segment)
+#pragma config RSS = NO_RAM             // Secure Segment Data RAM Protection (No Secure RAM)
 
 // FGS
-#pragma config GWRP = GWRP_OFF          // General Code Segment Write Protect (Disabled)
-#pragma config GCP = CODE_PROT_OFF      // General Segment Code Protection (Disabled)
+#pragma config GWRP = OFF               // General Code Segment Write Protect (User program memory is not write-protected)
+#pragma config GSS = OFF                // General Segment Code Protection (User program memory is not code-protected)
+
+// FOSCSEL
+#pragma config FNOSC = FRCPLL           // Oscillator Mode (Internal Fast RC (FRC) w/ PLL)
+#pragma config IESO = ON                // Internal External Switch Over Mode (Start-up device with FRC, then automatically switch to user-selected oscillator source when ready)
+
+// FOSC
+#pragma config POSCMD = NONE            // Primary Oscillator Source (Primary Oscillator Disabled)
+#pragma config OSCIOFNC = ON            // OSC2 Pin Function (OSC2 pin has digital I/O function)
+#pragma config IOL1WAY = ON             // Peripheral Pin Select Configuration (Allow Only One Re-configuration)
+#pragma config FCKSM = CSDCMD           // Clock Switching and Monitor (Both Clock Switching and Fail-Safe Clock Monitor are disabled)
+
+// FWDT
+#pragma config WDTPOST = PS32768        // Watchdog Timer Postscaler (1:32,768)
+#pragma config WDTPRE = PR128           // WDT Prescaler (1:128)
+#pragma config WINDIS = OFF             // Watchdog Timer Window (Watchdog Timer in Non-Window mode)
+#pragma config FWDTEN = OFF             // Watchdog Timer Enable (Watchdog timer enabled/disabled by user software)
+
+// FPOR
+#pragma config FPWRT = PWR64            // POR Timer Value (64ms)
+#pragma config ALTI2C = OFF             // Alternate I2C  pins (I2C mapped to SDA1/SCL1 pins)
 
 // FICD
-#pragma config ICS = ICS_PGD            // Comm Channel Select (Use PGC/EMUC and PGD/EMUD)
+#pragma config ICS = PGD1               // Comm Channel Select (Communicate on PGC1/EMUC1 and PGD1/EMUD1)
+#pragma config JTAGEN = OFF             // JTAG Port Enable (JTAG is Disabled)
 
-#define __dsPIC30F3012__
-#include <p30Fxxxx.h>
+#include <p33Fxxxx.h>
 #include <libpic30.h>
 #include <xc.h>
 #include <stdio.h>
@@ -46,11 +61,11 @@
 int16_t ADCValue = 0; // Value pulled from ADC Buffer
 
 // SPI Transmission Content
-int16_t *audio;         // Oldest audio sample
-int16_t *buf;           // Newest audio sample
-#define buf_size 900
-int16_t buffer[buf_size];    // Buffer to store audio samples between spi chunks
-uint16_t payload;       // From master
+int16_t *audio;           // Oldest audio sample
+int16_t *buf;             // Newest audio sample
+#define buf_size 4096
+int16_t buffer[buf_size]; // Buffer to store audio samples between spi chunks
+uint16_t payload;         // From master
 
 // Sets pointers back to beginning of buffer
 void reset_buffer() {
@@ -82,65 +97,69 @@ void reset_feedback(void) {
     fbFull = 0;
 }
 
+// Initialized ADC module
 void init_ADC(void) {
-    ADCON1bits.ADON = 0;
-    
-    ADCHSbits.CH0SA = 1;    // Analog pins AN0-AN8 can be selected to CH0
-    ADCHSbits.CH0NA = 0;
-                     
-    ADCSSL = 0;              // Skip input scan for analog pins
-    ADCSSLbits.CSSL1 = 1;    // Sets input scan for analog pin AN1
-     
-    ADCON3bits.SAMC = 0;     // Sample Time = 1 x TAD
-    ADCON3bits.ADRC = 0;     // selecting Conversion clock source derived from system clock
-    ADCON3bits.ADCS = 9;     // Selecting conversion clock TAD
-    
-    ADCON1bits.ADSIDL = 0;   // Continue module while in Idle mode -> maybe this is what's messing with SPI?
-    ADCON1bits.FORM = 1;     // Signed Integer output: ssss sddd dddd dddd
-    ADCON1bits.SSRC = 0;     // Manual clear SAMP bit to end sampling and start conversion
-    ADCON1bits.ASAM = 0;     // Sampling begins when SAMP bit is set
-    ADCON1bits.SAMP = 0;     // Makes sure sampling doesn't start while configuring (even though module is off)
-      
-    ADCON2bits.VCFG = 0;     // Voltage Reference Configuration bits: set as AVdd and AVss
-    ADCON2bits.CSCNA = 0;    // Disable input scan
-    ADCON2bits.SMPI = 0;     // Selecting 1 conversion sample per interrupt
-    ADCON2bits.ALTS = 0;     // Always use MUX A input (goes with CH0SA selection)
-    ADCON2bits.BUFM = 0;     // Output as one 16-word buffer
-      
-    ADCON1bits.ADON = 1;     //A/D converter is ON  
-    ADPCFGbits.PCFG1 = 0;    // AN1 pin to Analog mode
+    AD1CON1bits.ADON = 0;
+
+    AD1CHS0bits.CH0SA = 1;     // Analog pins AN0-AN8 can be selected to CH0
+    AD1CHS0bits.CH0NA = 0;     // Negative input is Vref-
+
+    AD1CSSLbits.CSS0 = 0;    // Skip input scan for analog pin AN0,AN2
+    AD1CSSLbits.CSS1 = 1;    // Sets input scan for analog pin AN1
+    AD1CSSLbits.CSS2 = 0;
+
+    AD1CON3bits.SAMC = 0;     // Sample Time = 1 x TAD
+    AD1CON3bits.ADRC = 0;     // selecting Conversion clock source derived from system clock
+    AD1CON3bits.ADCS = 6;     // Selecting conversion clock TAD
+
+    AD1CON1bits.AD12B = 1;    // 12-bit ADC operation
+    AD1CON1bits.ADSIDL = 0;   // Continue module while in Idle mode
+    AD1CON1bits.FORM = 1;     // Signed Integer output: ssss sddd dddd dddd
+    AD1CON1bits.SSRC = 7;     // Manual clear SAMP bit to end sampling and start conversion
+    AD1CON1bits.ASAM = 0;     // Sampling begins when SAMP bit is set
+    AD1CON1bits.SAMP = 0;     // Makes sure sampling doesn't start while configuring (even though module is off)
+
+    AD1CON2bits.VCFG = 0;     // Voltage Reference Configuration bits: set as AVdd and AVss
+    AD1CON2bits.CSCNA = 0;    // Disable input scan
+    AD1CON2bits.SMPI = 0;     // Selecting 1 conversion sample per interrupt
+    AD1CON2bits.ALTS = 0;     // Always use MUX A input (goes with CH0SA selection)
+    AD1CON2bits.BUFM = 0;     // Output as one 16-word buffer
+
+    AD1CON1bits.ADON = 1;     //A/D converter is ON
+    AD1PCFGLbits.PCFG1 = 0;    // AN1 pin to Analog mode
 }
 
-void readADC(void) {                      
-    ADCON1bits.SAMP = 1;  // start sampling
-    __delay32(10);
-    ADCON1bits.SAMP = 0;        // ends sampling, start conversion
-    while ( !ADCON1bits.DONE ); // wait to complete the conversion
-        ADCValue = ADCBUF0;     // read the conversion result 
+// Update ADCValue with most recent ADC input
+void readADC(void) {
+    AD1CON1bits.DONE = 0;
+    AD1CON1bits.SAMP = 1;        // start sampling
+
+    while ( !AD1CON1bits.DONE ); // wait to complete the conversion (about 14 x TAD))
+        ADCValue = ADC1BUF0;     // read the conversion result
 }
 
 
 // Initializes SPI module and syncs up with master
 void init_SPI(void) {
     
-    // Disable analog inputs/outputs
-    ADPCFGbits.PCFG5 = 1;
-    ADPCFGbits.PCFG4 = 1;
-    ADPCFGbits.PCFG2 = 1;
-    ADPCFGbits.PCFG6 = 1;
+    // Set peripheral pins to SPI
+    RPINR20bits.SCK1R = 6; // SCK
+    RPINR20bits.SDI1R = 7; // SDI
+    RPOR4bits.RP8R = 7;    // SDO
+    RPINR21bits.SS1R = 9;  // SS
     
     // Clear buffer
     SPI1BUF = 0b000000000000000;
     
     // Configure module
-    SPI1CONbits.MSTEN = 0;  // Disable master mode (enable slave))
-    SPI1CONbits.MODE16 = 1; // Enable 16 bit mode (disable 8 bit)
-    SPI1CONbits.CKE = 0;    // Transmit on clock idle to active
-    SPI1CONbits.CKP = 0;    // Idle is low
-    SPI1CONbits.SSEN = 1;   // Enable slave select pin4
+    SPI1CON1bits.MSTEN = 0;  // Disable master mode (enable slave))
+    SPI1CON1bits.MODE16 = 1; // Enable 16 bit mode (disable 8 bit)
+    SPI1CON1bits.CKE = 0;    // Transmit on clock idle to active
+    SPI1CON1bits.CKP = 0;    // Idle is low
+    SPI1CON1bits.SSEN = 1;   // Enable slave select pin4
     
     // Slave mode requirements
-    SPI1CONbits.SMP = 0; // Clear SPI Data Input Sample Phase bit
+    SPI1CON1bits.SMP = 0; // Clear SPI Data Input Sample Phase bit
     SPI1STATbits.SPIROV = 0; // Clear SPI overflow bit
     
     // Interrupt clear and setup
@@ -192,7 +211,7 @@ void init_TIMER(void) {
     T1CONbits.TCS = 0;      // Internal Clock
     T1CONbits.TCKPS = 0b00; // No prescaler
     
-    PR1 = 0x012A; // run timer up to this value
+    PR1 = 0x02C4; // run timer up to this value
     TMR1 = 0;
     
     // Interrupt clear and setup
@@ -210,8 +229,11 @@ void intpt _T1Interrupt(void) {
     
     // Timer oscillation
     value = !value;
-    LATBbits.LATB7 = value;
+    LATBbits.LATB5 = value;
+    
+    // Reset interrupt
     TMR1 = 0;
+    IFS0bits.T1IF = 0;
     
     // Read audio
     readADC();
@@ -230,13 +252,13 @@ void intpt _T1Interrupt(void) {
     if (fbFull) {
         // EQ filter settings
     }
-    
-    // Reset interrupt
-    IFS0bits.T1IF = 0;
 }
 
 
 void main() {     
+    
+    // Faster clock
+    PLLFBDbits.PLLDIV = 200; // PLL Multiplier
     
     // Initialize audio buffer
     reset_buffer();
@@ -247,9 +269,8 @@ void main() {
     init_TIMER();
     
     // Output pin for testing
-    ADPCFGbits.PCFG7 = 1;
-    TRISBbits.TRISB7 = 0;
-    LATBbits.LATB7 = 0;
+    TRISBbits.TRISB5 = 0;
+    LATBbits.LATB5 = 0;
     
     // Main loop
     reset_feedback();
