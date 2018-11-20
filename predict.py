@@ -135,6 +135,7 @@ if __name__ == "__main__":
         
         # Number of samples in an instance
         instance_samples = int(sample_rate*ap.INSTANCE_SIZE) # INSTANCE_SIZE = seconds
+        size = int(instance_samples*overlap)
         
         # Launch wav reader with indicator queue
         execute_queue = Queue(maxsize = 1)
@@ -145,7 +146,7 @@ if __name__ == "__main__":
         wav.start()
     
     # First half of instance
-    prev_fft = np.asarray( [0]*int(instance_samples*overlap) )
+    prev_fft = np.asarray( [0]*size )
     
     ### Detect feedback
     fft = 0
