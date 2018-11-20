@@ -110,7 +110,7 @@ void init_ADC(void) {
 
     AD1CON3bits.SAMC = 0;     // Sample Time = 1 x TAD
     AD1CON3bits.ADRC = 0;     // selecting Conversion clock source derived from system clock
-    AD1CON3bits.ADCS = 6;     // Selecting conversion clock TAD
+    AD1CON3bits.ADCS = 0;     // Selecting conversion clock TAD
 
     AD1CON1bits.AD12B = 1;    // 12-bit ADC operation
     AD1CON1bits.ADSIDL = 0;   // Continue module while in Idle mode
