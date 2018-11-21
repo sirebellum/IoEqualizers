@@ -97,6 +97,59 @@ void reset_feedback(void) {
     fbFull = 0;
 }
 
+
+// Initialized DAC module
+void init_DAC(void) {
+    DAC1CONbits.DACEN = 0;    // Turn off DAC module to make sure conversion doesn't start mid-config
+    DAC1CONbits.DACSIDL = 0;  // Continue module operation in Idle mode (same as with ADC)
+
+    TRISBbits.TRISB12 = 0;    // Set port B bit 12 to output
+    LATBbits.LATB12 = 0;  	  // Clear
+
+    // Set up DAC clock
+    ACLKCONbits.SELACLK = 0;  // FRC w/ PLL as Clock Source 
+    ACLKCONbits.AOSCMD = 0;	  // Auxiliary Oscillator Disabled
+    ACLKCONbits.ASRCSEL = 1;  // Primary Oscillator is the Clock Source
+    ACLKCONbits.APSTSCLR = 4; // ACLK = FCV0/3 
+
+    DAC1STATbits.ROEN = 1;    // Enable right DAC output
+    //DAC1STATbits.LOEN = 0;  // Enable left DAC output 
+
+    DAC1DFLT = 0x0000;        // Default to midpoint output voltage 
+
+    DAC1CONbits.AMPON = 0;    // Analog output amp disabled during Sleep/Idle mode
+    DAC1CONbits.FORM = 1;     // Data format as signed integer 
+
+    // Interrupts
+    DAC1STATbits.RITYPE = 0;  // Right CH Interrupt when FIFO is not full
+    //DAC1STATbits.LITYPE = 0;// LeftCH Interrupt when FIFO is not full
+
+    IFS4bits.DAC1RIF = 0;     // Clear Right CH interrupt flag
+    //IFS4bits.DAC1LIF = 0;   // Clear Left CH interrupt flag
+
+    IEC4bits.DAC1RIE = 1;     // Right CH Interrupt Enable
+    //IEC4bits.DAC1LIE = 1;   // Left CH Interrupt Enable
+    
+    IPC19bits.DAC1RIP = 0b010;// Set interrupt priority
+
+    DAC1RDAT = 0x0000;        // Initiate DAC by writing to R&L outputs 
+
+    DAC1CONbits.DACFDIV = 0;  // Divide DAC clock
+    
+    DAC1CONbits.DACEN = 1;    // Enable DAC mode
+    AD1PCFGLbits.PCFG12 = 0;  // RB12 pin to Analog mode
+}
+
+void intpt _DAC1RInterrupt(void) {
+    LATAbits.LATA4 = !LATAbits.LATA4;
+    // wait until FIFO is not full
+    while (DAC1STATbits.RFULL == 1) ;
+    DAC1RDAT = ADCValue;
+
+    IFS4bits.DAC1RIF = 0;
+}
+
+
 // Initialized ADC module
 void init_ADC(void) {
     AD1CON1bits.ADON = 0;
@@ -110,7 +163,7 @@ void init_ADC(void) {
 
     AD1CON3bits.SAMC = 0;     // Sample Time = 1 x TAD
     AD1CON3bits.ADRC = 0;     // selecting Conversion clock source derived from system clock
-    AD1CON3bits.ADCS = 6;     // Selecting conversion clock TAD
+    AD1CON3bits.ADCS = 0;     // Selecting conversion clock TAD
 
     AD1CON1bits.AD12B = 1;    // 12-bit ADC operation
     AD1CON1bits.ADSIDL = 0;   // Continue module while in Idle mode
@@ -135,7 +188,7 @@ void readADC(void) {
     AD1CON1bits.SAMP = 1;        // start sampling
 
     while ( !AD1CON1bits.DONE ); // wait to complete the conversion (about 14 x TAD))
-        ADCValue = ADC1BUF0;     // read the conversion result
+        ADCValue = ADC1BUF0 * 16;     // read the conversion result
 }
 
 
@@ -215,7 +268,7 @@ void init_TIMER(void) {
     TMR1 = 0;
     
     // Interrupt clear and setup
-    IPC0bits.T1IP = 0b010; // Priority
+    IPC0bits.T1IP = 0b011; // Priority
     IFS0bits.T1IF = 0;
     IEC0bits.T1IE = 1;
     
@@ -223,13 +276,11 @@ void init_TIMER(void) {
 }
 
 // Timer interrupt
-int8_t value = 0;
 //int16_t test = 0;
 void intpt _T1Interrupt(void) {
     
     // Timer oscillation
-    value = !value;
-    LATBbits.LATB5 = value;
+    LATBbits.LATB5 = !LATBbits.LATB5;
     
     // Reset interrupt
     TMR1 = 0;
@@ -267,10 +318,13 @@ void main() {
     init_SPI();
     init_ADC();
     init_TIMER();
+    init_DAC();
     
     // Output pin for testing
     TRISBbits.TRISB5 = 0;
     LATBbits.LATB5 = 0;
+    TRISAbits.TRISA4 = 0;
+    LATAbits.LATA4 = 0;
     
     // Main loop
     reset_feedback();
