@@ -115,6 +115,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import data_processing.audio_processing as ap
     from timeit import default_timer as timer
+    import traceback
 
     # Choose instance size to return
     sample_rate = 44100
@@ -140,12 +141,14 @@ if __name__ == "__main__":
             instance = comm.transmit()
 
             # Visualize
-            plt.plot(instance); plt.draw(); plt.pause(.0001)
+            plt.plot(instance[0:100]); plt.draw(); plt.pause(.0001)
 
             # Print
-            print( timer()-beg, ":", size-len(instance))
+            print( timer()-beg, ":", min(instance), max(instance), size-len(instance))
             #import pdb;pdb.set_trace()
 
     except KeyboardInterrupt:
+        traceback.print_exc()
         exit()
         
+
