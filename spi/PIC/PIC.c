@@ -134,7 +134,7 @@ void init_DAC(void) {
 
     DAC1RDAT = 0x0000;        // Initiate DAC by writing to R&L outputs 
 
-    DAC1CONbits.DACFDIV = 0;  // Divide DAC clock
+    DAC1CONbits.DACFDIV = 1;  // Divide DAC clock
     
     DAC1CONbits.DACEN = 1;    // Enable DAC mode
     AD1PCFGLbits.PCFG12 = 0;  // RB12 pin to Analog mode
@@ -163,7 +163,7 @@ void init_ADC(void) {
 
     AD1CON3bits.SAMC = 0;     // Sample Time = 1 x TAD
     AD1CON3bits.ADRC = 0;     // selecting Conversion clock source derived from system clock
-    AD1CON3bits.ADCS = 0;     // Selecting conversion clock TAD
+    AD1CON3bits.ADCS = 4;     // Selecting conversion clock TAD
 
     AD1CON1bits.AD12B = 1;    // 12-bit ADC operation
     AD1CON1bits.ADSIDL = 0;   // Continue module while in Idle mode
@@ -264,7 +264,7 @@ void init_TIMER(void) {
     T1CONbits.TCS = 0;      // Internal Clock
     T1CONbits.TCKPS = 0b00; // No prescaler
     
-    PR1 = 0x02B0; // run timer up to this value
+    PR1 = 0x03DB; // run timer up to this value
     TMR1 = 0;
     
     // Interrupt clear and setup
@@ -306,15 +306,30 @@ void intpt _T1Interrupt(void) {
 }
 
 
-void main() {     
+// Set up clock
+void init_CLK(void) {
+    // Configure PLL prescaler, PLL postscaler, PLL divisor
+    PLLFBDbits.PLLDIV = 47;  // M
+    CLKDIVbits.PLLPOST = 0;   // N2
+    CLKDIVbits.PLLPRE = 0;    // N1
     
-    // Faster clock
-    PLLFBDbits.PLLDIV = 200; // PLL Multiplier
+    // Initiate Clock Switch to Internal FRC with PLL (NOSC = 0b001)
+    __builtin_write_OSCCONH(0x01);
+    __builtin_write_OSCCONL(OSCCON | 0x01);
+    
+    // Wait for Clock switch to occur
+    while (OSCCONbits.COSC != 0b001);
+    // Wait for PLL to lock
+    while(OSCCONbits.LOCK!=1) {};
+}
+
+void main() {     
     
     // Initialize audio buffer
     reset_buffer();
     
     // Initialize all modules
+    init_CLK();
     init_SPI();
     init_ADC();
     init_TIMER();
