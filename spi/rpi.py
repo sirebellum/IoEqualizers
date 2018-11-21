@@ -62,12 +62,11 @@ class audioSPI:
             # Send/receive for audio sample
             _block[:self.BLOCKSIZE] = self.spi.xfer(payload)[:self.BLOCKSIZE]
 
-            # Fill queue : update with newest block if full
+            # Fill queue
             try:
                 queueout.put(_block, block=False)
             except:
-                _ = queueout.get()
-                queueout.put(_block, block=False)
+                pass
 
                 
     # Collect sample
