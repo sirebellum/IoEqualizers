@@ -12,6 +12,13 @@ WIDTH = ap.WIDTH
 
 NUMCLASSES = 2
 
+NOIS_MEAN = 0.0
+NOISE_STD = 0.05
+def gaussian_noise_layer(input_layer, std):
+    noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 
+    return input_layer + noise
+
+    
 def FeedbackNet(input, weights, feature_extractor):
 
     # Get high level features
@@ -87,13 +94,17 @@ def model(features, labels, mode, params):
     # Input Layer
     print("Mode:", mode)
     input_layer = tf.reshape(image, [-1, HEIGHT, WIDTH, 1], name="image_input")
-
+    
     # High level feature extractor (function)
     feature_extractor = params['feature_extractor']
 
     # Pretrained weights
     weights = params['weights']
 
+    # Add noise
+    if "noise" in params.keys():
+        input_layer = gaussian_noise_layer(input_layer, NOISE_STD)
+    
     # Extract binary class and bins
     logits = FeedbackNet(input_layer, weights, feature_extractor)
 

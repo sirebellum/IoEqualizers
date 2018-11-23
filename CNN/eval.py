@@ -72,6 +72,7 @@ def main(unused_argv):
 
     # Define params for model
     params = {}
+    params['noise'] = True
     params['feature_extractor'] = feature_extractor
     params['weights'] = weights
 

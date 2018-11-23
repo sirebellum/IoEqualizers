@@ -75,7 +75,7 @@ def main(unused_argv):
     # Define params for model
     params = {}
     params['feature_extractor'] = feature_extractor
-    #params['noise'] = True
+    params['noise'] = True
     params['weights'] = weights
 
     # Reduce GPU memory allocation
