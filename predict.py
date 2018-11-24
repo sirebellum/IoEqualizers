@@ -170,12 +170,13 @@ if __name__ == "__main__":
         prev_fft = this_fft[len(this_fft)-size:]
         
         # Volume thresholding
-        #threshold = 2350
-        #fft_time_samples = len(fft[0])
-        #total_fft_volume = sum(sum(abs(fft)))
-        #fft_volume = total_fft_volume/fft_time_samples
-        #if fft_volume < threshold or fft_volume == float('inf'):
-        #    continue # Don't even process
+        threshold = 13000
+        fft_time_samples = len(fft[0])
+        total_fft_volume = sum(sum(abs(fft)))
+        fft_volume = total_fft_volume/fft_time_samples
+        print(fft_volume)
+        if fft_volume < threshold or fft_volume == float('inf'):
+            continue # Don't even process
         
         # Create fft image and compress into png
         image = ap.plotSpectrumBW(fft)
