@@ -250,7 +250,9 @@ void intpt _SPI1Interrupt(void) {
         
         // Don't accidentally send filler
         if ( ((0x00FF&*audio) ^ 0x0055) == 0 )
-            *audio = *audio + 1;
+            *audio = *audio & 0xFFFE;
+        if ( ((0xFF00&*audio) ^ 0x5500) == 0 )
+            *audio = *audio & 0xFEFF;
         
         SPI1BUF = *audio;
         audio++;
