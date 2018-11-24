@@ -130,7 +130,7 @@ void init_DAC(void) {
     IEC4bits.DAC1RIE = 1;     // Right CH Interrupt Enable
     //IEC4bits.DAC1LIE = 1;   // Left CH Interrupt Enable
     
-    IPC19bits.DAC1RIP = 0b010;// Set interrupt priority
+    IPC19bits.DAC1RIP = 4;// Set interrupt priority
 
     DAC1RDAT = 0x0000;        // Initiate DAC by writing to R&L outputs 
 
@@ -142,10 +142,10 @@ void init_DAC(void) {
 
 void intpt _DAC1RInterrupt(void) {
     LATAbits.LATA4 = !LATAbits.LATA4;
-    // wait until FIFO is not full
-    while (DAC1STATbits.RFULL == 1) ;
+    
+    // Output
     DAC1RDAT = ADCValue;
-
+    
     IFS4bits.DAC1RIF = 0;
 }
 
@@ -178,17 +178,32 @@ void init_ADC(void) {
     AD1CON2bits.ALTS = 0;     // Always use MUX A input (goes with CH0SA selection)
     AD1CON2bits.BUFM = 0;     // Output as one 16-word buffer
 
+    // Interrupt setup
+    IPC3bits.AD1IP = 3; // Priority
+    IFS0bits.AD1IF = 0; // Clear flag
+    IEC0bits.AD1IE = 1;
+    
     AD1CON1bits.ADON = 1;     //A/D converter is ON
     AD1PCFGLbits.PCFG1 = 0;    // AN1 pin to Analog mode
+}
+
+// Collects sample and updates buffer
+void intpt _ADC1Interrupt(void) {
+    
+    ADCValue = ADC1BUF0 * 16;     // read the conversion result
+    
+    // Fill buffer if not full
+    if (buf < &(buffer[buf_size-1]))
+        buf++;
+    *buf = ADCValue;
+    
+    IFS0bits.AD1IF = 0; // Clear flag
 }
 
 // Update ADCValue with most recent ADC input
 void readADC(void) {
     AD1CON1bits.DONE = 0;
     AD1CON1bits.SAMP = 1;        // start sampling
-
-    while ( !AD1CON1bits.DONE ); // wait to complete the conversion (about 14 x TAD))
-        ADCValue = ADC1BUF0 * 16;     // read the conversion result
 }
 
 
@@ -216,7 +231,7 @@ void init_SPI(void) {
     SPI1STATbits.SPIROV = 0; // Clear SPI overflow bit
     
     // Interrupt clear and setup
-    IPC2bits.SPI1IP = 0b001; // Priority
+    IPC2bits.SPI1IP = 1; // Priority
     IFS0bits.SPI1IF = 0;
     IEC0bits.SPI1IE = 1;
     
@@ -268,7 +283,7 @@ void init_TIMER(void) {
     TMR1 = 0;
     
     // Interrupt clear and setup
-    IPC0bits.T1IP = 0b011; // Priority
+    IPC0bits.T1IP = 2; // Priority
     IFS0bits.T1IF = 0;
     IEC0bits.T1IE = 1;
     
@@ -293,16 +308,6 @@ void intpt _T1Interrupt(void) {
     //test++;
     //if ((test & 0x5500) == 0x5500)
     //     test = 0;
-    
-    // Fill buffer if not full
-    if (buf < &(buffer[buf_size-1]))
-        buf++;
-    *buf = ADCValue;
-    
-    // Set filters based on feedback vector
-    if (fbFull) {
-        // EQ filter settings
-    }
 }
 
 
@@ -322,6 +327,7 @@ void init_CLK(void) {
     // Wait for PLL to lock
     while(OSCCONbits.LOCK!=1) {};
 }
+
 
 void main() {     
     
@@ -352,5 +358,10 @@ void main() {
         
         // Check if feedback exists
         fbFull = !((0x003F & *(f2.data)) ^ 0x003F);
+        
+        // Set filters based on feedback vector
+        if (fbFull) {
+            // EQ filter settings
+        }
     }
 }
