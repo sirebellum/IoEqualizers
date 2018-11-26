@@ -56,11 +56,12 @@
 // Keyword for interrupt
 #define intpt __attribute__((interrupt(auto_psv)))
 
-// GLOBAL VARIABLES:
-// ADC
-int16_t ADCValue = 0; // Value pulled from ADC Buffer
 
-// SPI Transmission Content
+// Audio
+int16_t ADCValue, DACValue = 0; // Audio values for buffers
+
+
+// SPI
 int16_t *audio;           // Oldest audio sample
 int16_t *buf;             // Newest audio sample
 #define buf_size 4096
@@ -72,6 +73,42 @@ void reset_buffer() {
     buffer[0] = 0x5555;
     audio = &buffer[1];
     buf = &buffer[0];
+}
+
+
+// Filters
+// Keywords for storing in .xdata and .ydata
+#define _YDAT __attribute__((space(ymemory),far))
+#define _XDAT __attribute__((space(xmemory)))
+
+// Filter inputs/outputs
+fractional unfiltered;
+fractional filtered;
+int16_t NUMSAMP = 1;
+int coefficientPage = COEFFS_IN_DATA;       // 0xFF00 for x-data address
+
+// Filters
+// Highpass from 250Hz
+fractional _XDAT highpass_coefficients[5] = {
+    31158, -63885, 32768, 65536, 32768};  // a2, a1, b2, b1, b0
+
+fractional _YDAT delayBuffer[2];
+IIRCanonicStruct highpass;
+
+// Initialize filters
+void init_IIR(void) {
+    
+    // Highpass
+    highpass.numSectionsLess1 = 0;                   // Number of coeffs minus one
+    highpass.coeffsBase = highpass_coefficients;     // Address where coeffs start (in xdata)
+    highpass.coeffsPage = coefficientPage;           // Coeffs delay page number
+    highpass.delayBase = delayBuffer;                // Address of filter delay (in ydata)
+    highpass.initialGain = 10;                        // Gain applied to EACH input sample PRIOR to filter
+    highpass.finalShift = 0;                         // Output scaling, don't want shifted (delayed) output so = 0
+    
+    IIRCanonicInit(&highpass); 
+    
+    LATAbits.LATA3 = 1;
 }
 
 // Feedback variables
@@ -173,7 +210,7 @@ void intpt _DAC1RInterrupt(void) {
     LATAbits.LATA4 = !LATAbits.LATA4;
     
     // Output
-    DAC1RDAT = ADCValue;
+    DAC1RDAT = DACValue;
     
     IFS4bits.DAC1RIF = 0;
 }
@@ -334,6 +371,10 @@ void intpt _T1Interrupt(void) {
     
     // Read audio
     readADC();
+    DACValue = ADCValue;
+    
+    // Filter
+    //IIRCanonic(NUMSAMP, &filtered, &unfiltered, &highpass);
     
     // Testing
     //test++;
@@ -372,6 +413,7 @@ void main() {
     init_TIMER();
     init_FBTIMER();
     init_DAC();
+    init_IIR();
     
     // Output pin for testing
     TRISBbits.TRISB5 = 0;
