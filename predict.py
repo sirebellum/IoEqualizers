@@ -170,7 +170,7 @@ if __name__ == "__main__":
         prev_fft = this_fft[len(this_fft)-size:]
         
         # Volume thresholding
-        threshold = 13000
+        threshold = 0
         fft_time_samples = len(fft[0])
         total_fft_volume = sum(sum(abs(fft)))
         fft_volume = total_fft_volume/fft_time_samples
@@ -187,19 +187,24 @@ if __name__ == "__main__":
         # Turn into json request
         json_request = create_json([png_image], signature_name)
         
-        # Send frame to server
-        beg = timer()
-        try: output = requests.post(url, data=json_request, timeout=0.5) # Don't hang on one frame
-        except: continue
-        print(sys.getsizeof(json_request), timer()-beg)
+        # Option to not send to server
+        if args.model_id != 'NULL':
+
+            # Send frame to server
+            beg = timer()
+            try: output = requests.post(url, data=json_request, timeout=0.5) # Don't hang on one frame
+            except: continue
+            print(sys.getsizeof(json_request), timer()-beg)
         
         # Get predictions from response
-        try:
-            predictions = output.json()['predictions']
-        except:
-            print( output.text )
-            exit()
-        
+            try:
+                predictions = output.json()['predictions']
+            except:
+                print( output.text )
+                exit()
+
+        else: predictions = [[0]]
+
         # If there was feedback detected
         if max(predictions[0]) == 1:
             print("Feedback!")
