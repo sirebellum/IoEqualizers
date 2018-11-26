@@ -118,8 +118,8 @@ void init_FBTIMER(void) {
 // Timer3 interrupt
 void intpt _T3Interrupt(void) {
     
-    // Reset fb vector
-    reset_feedback();
+    // Check if feedback exists
+    fbFull = !((0x003F & *(f2.data)) ^ 0x003F);
     
     // Reset interrupt
     TMR3 = 0;
@@ -387,9 +387,6 @@ void main() {
         if ((0x003F & *(f2.data)) != 0x003F
                    && *(f2.data)  != 0)
             reset_feedback();
-        
-        // Check if feedback exists
-        fbFull = !((0x003F & *(f2.data)) ^ 0x003F);
         
         // Set filters based on feedback vector
         if (fbFull) {
