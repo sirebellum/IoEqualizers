@@ -97,6 +97,35 @@ void reset_feedback(void) {
     fbFull = 0;
 }
 
+// Initializes Timer3 to reset feedback vecror
+void init_FBTIMER(void) {
+    
+    // T1CON timer mode config
+    T3CONbits.TCS = 0;      // Internal Clock
+    T3CONbits.TCKPS = 0b10; // No prescaler
+    
+    PR3 = 0x2DCB; // run timer up to this value
+    TMR3 = 0;
+    
+    // Interrupt clear and setup
+    IPC2bits.T3IP = 1; // Priority
+    IFS0bits.T3IF = 0;
+    IEC0bits.T3IE = 1;
+    
+    T3CONbits.TON = 1; // Start timer
+}
+
+// Timer3 interrupt
+void intpt _T3Interrupt(void) {
+    
+    // Reset fb vector
+    reset_feedback();
+    
+    // Reset interrupt
+    TMR3 = 0;
+    IFS0bits.T3IF = 0;
+}
+
 
 // Initialized DAC module
 void init_DAC(void) {
@@ -341,6 +370,7 @@ void main() {
     init_SPI();
     init_ADC();
     init_TIMER();
+    init_FBTIMER();
     init_DAC();
     
     // Output pin for testing
