@@ -79,35 +79,8 @@ void reset_buffer() {
 // Filters
 // Keywords for storing in .xdata and .ydata
 #define _YDAT(N) __attribute__((eds, space(ymemory), aligned(N)))
-#define _XDAT __attribute__((space(xmemory)))
+#define _XDAT __attribute__((eds, space(xmemory)))
 
-// Filter inputs/outputs
-int16_t NUMSAMP = 1;
-int coefficientPage = COEFFS_IN_DATA;       // 0xFF00 for x-data address
-
-// Filters
-// Highpass from 250Hz
-fractional _XDAT filter_coefficients[5] = {
-    0x7FFF, 0x8000, 0x7FFF, 0x8000, 0x7FFF};  // a2, a1, b2, b1, b0
-fractional _XDAT unfiltered;
-
-fractional _YDAT(4096) delayBuffer[2];
-fractional _YDAT(4) filtered;
-IIRCanonicStruct filter;
-
-// Initialize filters
-void init_IIR(void) {
-    
-    // Highpass
-    filter.numSectionsLess1 = 0;                   // Number of coeffs minus one
-    filter.coeffsBase = filter_coefficients;     // Address where coeffs start (in xdata)
-    filter.coeffsPage = coefficientPage;           // Coeffs delay page number
-    filter.delayBase = delayBuffer;                // Address of filter delay (in ydata)
-    filter.initialGain = 10;                        // Gain applied to EACH input sample PRIOR to filter
-    filter.finalShift = 16;                         // Output scaling
-    
-    IIRCanonicInit(&filter);
-}
 
 // Feedback variables
 uint16_t fb0, fb1, fb2;   // Components of feedback vector
@@ -198,22 +171,21 @@ void init_DAC(void) {
 
     DAC1RDAT = 0x0000;        // Initiate DAC by writing to R&L outputs 
 
-    DAC1CONbits.DACFDIV = 1;  // Divide DAC clock
+    DAC1CONbits.DACFDIV = 3;  // Divide DAC clock
     
     DAC1CONbits.DACEN = 1;    // Enable DAC mode
     AD1PCFGLbits.PCFG12 = 0;  // RB12 pin to Analog mode
 }
 
 void intpt _DAC1RInterrupt(void) {
-    LATAbits.LATA4 = !LATAbits.LATA4;
+    
+    //LATAbits.LATA4 = !LATAbits.LATA4;
     
     // Filter
-    unfiltered = ADCValue ^ 0x8000;
-    IIRCanonic(NUMSAMP, &filtered, &unfiltered, &filter);
+    DACValue = filter(ADCValue);
     
     // Output
-    DACValue = filtered ^ 0x8000;
-    DAC1RDAT = filtered;
+    DAC1RDAT = ADCValue;
     
     IFS4bits.DAC1RIF = 0;
 }
@@ -350,7 +322,7 @@ void init_TIMER(void) {
     T1CONbits.TCS = 0;      // Internal Clock
     T1CONbits.TCKPS = 0b00; // No prescaler
     
-    PR1 = 0x03DB; // run timer up to this value
+    PR1 = 0x07B6; // run timer up to this value
     TMR1 = 0;
     
     // Interrupt clear and setup
@@ -366,7 +338,7 @@ void init_TIMER(void) {
 void intpt _T1Interrupt(void) {
     
     // Timer oscillation
-    LATBbits.LATB5 = !LATBbits.LATB5;
+    //LATBbits.LATB5 = !LATBbits.LATB5;
     
     // Reset interrupt
     TMR1 = 0;
@@ -399,6 +371,42 @@ void init_CLK(void) {
     while(OSCCONbits.LOCK!=1) {};
 }
 
+int16_t LPF550Hz(int16_t NewSample) {
+    static int32_t y[3]; //output samples
+    static int16_t x[3]; //input samples
+    x[2] = x[1];
+    x[1] = x[0];
+    x[0] = NewSample;
+    y[2] = y[1];
+    y[1] = y[0];
+    y[0] = (int32_t) 389 * x[0];
+    y[0] += (int32_t) - 382 * x[1] + 30669 * y[1];
+    y[0] += (int32_t) 389 * x[2] - 14512 * y[2];
+    y[0] /= 16384;
+    return (y[0] / 2);
+}
+
+int16_t HPF1k2Hz(int16_t NewSample) {
+    static int32_t y[3]; //output samples
+    static int16_t x[3]; //input samples
+    x[2] = x[1];
+    x[1] = x[0];
+    x[0] = NewSample;
+    y[2] = y[1];
+    y[1] = y[0];
+    y[0] = (int32_t) 15284 * x[0];
+    y[0] += (int32_t) - 30569* x[1] + 30440 * y[1]; 
+    y[0] += (int32_t) 15284 * x[2] - 15284 * y[2];
+    y[0] /= 16500;
+    return (y[0] / 1);
+}
+
+int16_t filter(int16_t NewSample) {
+    int16_t filteredValue = LPF550Hz(NewSample);
+    filteredValue += HPF1k2Hz(NewSample);
+    return(filteredValue);
+}
+
 
 void main() {     
     
@@ -411,14 +419,13 @@ void main() {
     init_ADC();
     init_TIMER();
     init_FBTIMER();
-    init_IIR();
     init_DAC();
     
     // Output pin for testing
-    TRISBbits.TRISB5 = 0;
-    LATBbits.LATB5 = 0;
-    TRISAbits.TRISA4 = 0;
-    LATAbits.LATA4 = 0;
+    //TRISBbits.TRISB5 = 0;
+    //LATBbits.LATB5 = 0;
+    //TRISAbits.TRISA4 = 0;
+    //LATAbits.LATA4 = 0;
     
     // Main loop
     reset_feedback();
