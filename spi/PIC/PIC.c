@@ -83,14 +83,15 @@ void reset_buffer() {
 
 
 // Feedback variables
-uint16_t fb0, fb1, fb2;   // Components of feedback vector
+uint16_t fi, fb0, fb1, fb2;   // Components of feedback vector
 
 // Feedback Vector
 struct feedback {uint16_t *data;
                  struct feedback *next;}
 //I do declare
 f0,
-f2 = {&fb2, &f0},
+f =  {&fi, &f0},
+f2 = {&fb2, &f},
 f1 = {&fb1, &f2},
 f0 = {&fb0, &f1};
 
@@ -102,33 +103,34 @@ void reset_feedback(void) {
     *(f0.data) = 0;
     *(f1.data) = 0;
     *(f2.data) = 0;
+    *(f.data) = 0;
+    response = &f;
     fbFull = 0;
 }
 
 // Initializes Timer3 to reset feedback vecror
 void init_FBTIMER(void) {
-    
+
     // T1CON timer mode config
     T3CONbits.TCS = 0;      // Internal Clock
     T3CONbits.TCKPS = 0b10; // No prescaler
-    
-    PR3 = 0x2DCB; // run timer up to this value
+
+    PR3 = 0x0DCB; // run timer up to this value
     TMR3 = 0;
-    
+
     // Interrupt clear and setup
     IPC2bits.T3IP = 1; // Priority
     IFS0bits.T3IF = 0;
     IEC0bits.T3IE = 1;
-    
+
     T3CONbits.TON = 1; // Start timer
 }
 
 // Timer3 interrupt
 void intpt _T3Interrupt(void) {
-    
-    // Check if feedback exists
-    fbFull = !((0x003F & *(f2.data)) ^ 0x003F);
-    
+
+    reset_feedback();
+
     // Reset interrupt
     TMR3 = 0;
     IFS0bits.T3IF = 0;
@@ -185,7 +187,7 @@ void intpt _DAC1RInterrupt(void) {
     DACValue = filter(ADCValue);
     
     // Output
-    DAC1RDAT = ADCValue;
+    DAC1RDAT = DACValue;
     
     IFS4bits.DAC1RIF = 0;
 }
@@ -280,7 +282,7 @@ void init_SPI(void) {
     SPI1STATbits.SPIEN = 1;
 }
 
-// Interrupt based SPI send/receive
+// Interrupt based SPI send/receive=
 void intpt _SPI1Interrupt(void) {
     
     // Receive
@@ -305,8 +307,8 @@ void intpt _SPI1Interrupt(void) {
     }
     
     // Check for feedback response and populate vector if not full
-    if ((payload != 0xAAAA) && !fbFull) {
-        *(response->data) = payload;
+    *(response->data) = payload;
+    if ( !fbFull && ((0x003F & *(f.data)) == 0x003F) ) {
         response = response->next;
     }
     
@@ -371,40 +373,112 @@ void init_CLK(void) {
     while(OSCCONbits.LOCK!=1) {};
 }
 
+
+// Notch filter
 int16_t LPF550Hz(int16_t NewSample) {
+    
     static int32_t y[3]; //output samples
     static int16_t x[3]; //input samples
+    
     x[2] = x[1];
     x[1] = x[0];
     x[0] = NewSample;
     y[2] = y[1];
     y[1] = y[0];
+    
     y[0] = (int32_t) 389 * x[0];
     y[0] += (int32_t) - 382 * x[1] + 30669 * y[1];
     y[0] += (int32_t) 389 * x[2] - 14512 * y[2];
     y[0] /= 16384;
+    
     return (y[0] / 2);
 }
-
 int16_t HPF1k2Hz(int16_t NewSample) {
+    
     static int32_t y[3]; //output samples
     static int16_t x[3]; //input samples
+    
     x[2] = x[1];
     x[1] = x[0];
     x[0] = NewSample;
     y[2] = y[1];
     y[1] = y[0];
+    
     y[0] = (int32_t) 15284 * x[0];
     y[0] += (int32_t) - 30569* x[1] + 30440 * y[1]; 
     y[0] += (int32_t) 15284 * x[2] - 15284 * y[2];
     y[0] /= 16500;
+    
     return (y[0] / 1);
 }
-
-int16_t filter(int16_t NewSample) {
+int16_t notch(int16_t NewSample) {
     int16_t filteredValue = LPF550Hz(NewSample);
     filteredValue += HPF1k2Hz(NewSample);
     return(filteredValue);
+}
+
+// Highpass
+int16_t HPF250Hz(int16_t NewSample) {
+    
+    static int32_t y[3]; //output samples
+    static int16_t x[3]; //input samples
+    
+    x[2] = x[1];
+    x[1] = x[0];
+    x[0] = NewSample;
+    y[2] = y[1];
+    y[1] = y[0];
+    
+    y[0] = (int32_t) 15620 * x[0];
+    y[0] += (int32_t) - 31241 * x[1] + 31179 * y[1];
+    y[0] += (int32_t) 15620 * x[2] - 14920 * y[2];
+    y[0] /= 18384;
+    
+    return (y[0] / 1);
+}
+
+// Lowpass
+int16_t LPF5kHz(int16_t NewSample) {
+    
+    static int32_t y[3]; //output samples
+    static int16_t x[3]; //input samples
+    
+    x[2] = x[1];
+    x[1] = x[0];
+    x[0] = NewSample;
+    y[2] = y[1];
+    y[1] = y[0];
+    
+    y[0] = (int32_t) 9799 * x[0];
+    y[0] += (int32_t) 19598 * x[1] + 21263 * y[1]; 
+    y[0] += (int32_t) 9799 * x[2] - 8094 * y[2];
+    y[0] /= 34768;
+    
+    return (y[0] / 2);
+}
+
+
+// Filter init
+int hp, lp, ntch = 0;
+int16_t hpm[3] =   {0xE000, 0x0000, 0x0000};
+int16_t lpm[3] =   {0x0000, 0x000F, 0xFFC0};
+int16_t ntchm[3] = {0x1F80, 0x0000, 0x0000};
+int i;
+
+// Filter logic
+int16_t filter(int16_t NewSample) {
+    
+    int16_t filteredValue = NewSample;
+    
+    // Highpass
+    if (hp)
+        filteredValue = HPF250Hz(filteredValue);
+    if (lp)
+        filteredValue = LPF5kHz(filteredValue);
+    if (ntch)
+        filteredValue = notch(filteredValue);
+    
+    return filteredValue;
 }
 
 
@@ -431,14 +505,32 @@ void main() {
     reset_feedback();
     while (1) {
         
+        // Check if feedback exists
+        fbFull = !((0x003F & *(f2.data)) ^ 0x003F);
+        
         // Ensure feedback vector footer integrity
-        if ((0x003F & *(f2.data)) != 0x003F
-                   && *(f2.data)  != 0)
+        if ( ((0x003F & *(f2.data)) != 0x003F) && (response == &f) )
             reset_feedback();
         
         // Set filters based on feedback vector
         if (fbFull) {
-            // EQ filter settings
+            
+            // highpass
+            if ( (hpm[0] & *(f0.data))
+              || (hpm[1] & *(f1.data))
+              || (hpm[2] & *(f2.data)) )
+                hp = 1;
+            // lowpass
+            if ( (lpm[0] & *(f0.data))
+              || (lpm[1] & *(f1.data))
+              || (lpm[2] & *(f2.data)) )
+                lp = 1;
+            // Notch
+            if ( (ntchm[0] & *(f0.data))
+              || (ntchm[1] & *(f1.data))
+              || (ntchm[2] & *(f2.data)) )
+                ntch = 1;
         }
+        
     }
 }
