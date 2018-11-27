@@ -78,37 +78,35 @@ void reset_buffer() {
 
 // Filters
 // Keywords for storing in .xdata and .ydata
-#define _YDAT __attribute__((space(ymemory),far))
+#define _YDAT(N) __attribute__((eds, space(ymemory), aligned(N)))
 #define _XDAT __attribute__((space(xmemory)))
 
 // Filter inputs/outputs
-fractional unfiltered;
-fractional filtered;
 int16_t NUMSAMP = 1;
 int coefficientPage = COEFFS_IN_DATA;       // 0xFF00 for x-data address
 
 // Filters
 // Highpass from 250Hz
-fractional _XDAT highpass_coefficients[5] = {
-    31158, -63885, 32768, 65536, 32768};  // a2, a1, b2, b1, b0
+fractional _XDAT filter_coefficients[5] = {
+    0x7FFF, 0x8000, 0x7FFF, 0x8000, 0x7FFF};  // a2, a1, b2, b1, b0
+fractional _XDAT unfiltered;
 
-fractional _YDAT delayBuffer[2];
-IIRCanonicStruct highpass;
+fractional _YDAT(4096) delayBuffer[2];
+fractional _YDAT(4) filtered;
+IIRCanonicStruct filter;
 
 // Initialize filters
 void init_IIR(void) {
     
     // Highpass
-    highpass.numSectionsLess1 = 0;                   // Number of coeffs minus one
-    highpass.coeffsBase = highpass_coefficients;     // Address where coeffs start (in xdata)
-    highpass.coeffsPage = coefficientPage;           // Coeffs delay page number
-    highpass.delayBase = delayBuffer;                // Address of filter delay (in ydata)
-    highpass.initialGain = 10;                        // Gain applied to EACH input sample PRIOR to filter
-    highpass.finalShift = 0;                         // Output scaling, don't want shifted (delayed) output so = 0
+    filter.numSectionsLess1 = 0;                   // Number of coeffs minus one
+    filter.coeffsBase = filter_coefficients;     // Address where coeffs start (in xdata)
+    filter.coeffsPage = coefficientPage;           // Coeffs delay page number
+    filter.delayBase = delayBuffer;                // Address of filter delay (in ydata)
+    filter.initialGain = 10;                        // Gain applied to EACH input sample PRIOR to filter
+    filter.finalShift = 16;                         // Output scaling
     
-    IIRCanonicInit(&highpass); 
-    
-    LATAbits.LATA3 = 1;
+    IIRCanonicInit(&filter);
 }
 
 // Feedback variables
@@ -209,8 +207,13 @@ void init_DAC(void) {
 void intpt _DAC1RInterrupt(void) {
     LATAbits.LATA4 = !LATAbits.LATA4;
     
+    // Filter
+    unfiltered = ADCValue ^ 0x8000;
+    IIRCanonic(NUMSAMP, &filtered, &unfiltered, &filter);
+    
     // Output
-    DAC1RDAT = DACValue;
+    DACValue = filtered ^ 0x8000;
+    DAC1RDAT = filtered;
     
     IFS4bits.DAC1RIF = 0;
 }
@@ -371,10 +374,6 @@ void intpt _T1Interrupt(void) {
     
     // Read audio
     readADC();
-    DACValue = ADCValue;
-    
-    // Filter
-    //IIRCanonic(NUMSAMP, &filtered, &unfiltered, &highpass);
     
     // Testing
     //test++;
@@ -412,8 +411,8 @@ void main() {
     init_ADC();
     init_TIMER();
     init_FBTIMER();
-    init_DAC();
     init_IIR();
+    init_DAC();
     
     // Output pin for testing
     TRISBbits.TRISB5 = 0;
