@@ -481,6 +481,30 @@ int16_t filter(int16_t NewSample) {
     return filteredValue;
 }
 
+// Reset filters interrupt setup
+void init_RESET(void) {
+    
+    RPINR1bits.INT2R = 3; // RP3
+    TRISBbits.TRISB3 = 1; // input
+    AD1PCFGLbits.PCFG5 = 1; //digital
+    
+    INTCON2bits.INT2EP = 1; // Trigger on negative edge
+    IFS1bits.INT2IF = 0;    // Reset flag
+    IPC7bits.INT2IP = 1;    // low priority reset
+    IEC1bits.INT2IE = 1;    // Enable interrupt
+}
+
+// Reset filters interrupt
+void intpt _INT2Interrupt(void) {
+    
+    // Reset filters
+    hp = 0;
+    lp = 0;
+    ntch = 0;
+    
+    IFS1bits.INT2IF = 0; // Reset flag
+}
+
 
 void main() {     
     
@@ -494,6 +518,7 @@ void main() {
     init_TIMER();
     init_FBTIMER();
     init_DAC();
+    init_RESET();
     
     // Output pin for testing
     //TRISBbits.TRISB5 = 0;
