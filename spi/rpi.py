@@ -111,6 +111,8 @@ class audioSPI:
         self.spi.close() # close the port before exit
 
 if __name__ == "__main__":
+    import matplotlib
+    matplotlib.use('qt4agg')
     import matplotlib.pyplot as plt
     import data_processing.audio_processing as ap
     from timeit import default_timer as timer
@@ -140,7 +142,7 @@ if __name__ == "__main__":
             instance = comm.transmit()
 
             # Visualize
-            plt.plot(instance[0:100]); plt.draw(); plt.pause(.0001)
+            plt.plot(instance); plt.draw(); plt.pause(.0001)
 
             # Print
             print( timer()-beg, ":", min(instance), max(instance), size-len(instance))
