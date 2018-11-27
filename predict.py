@@ -171,11 +171,11 @@ if __name__ == "__main__":
         prev_fft = this_fft[len(this_fft)-size:]
         
         # Volume thresholding
-        threshold = 0
+        threshold = 10000
         fft_time_samples = len(fft[0])
         total_fft_volume = sum(sum(abs(fft)))
         fft_volume = total_fft_volume/fft_time_samples
-        print(fft_volume)
+        print("Volume: {0:.0f}".format(fft_volume))
         if fft_volume < threshold or fft_volume == float('inf'):
             continue # Don't even process
         
@@ -195,7 +195,7 @@ if __name__ == "__main__":
             beg = timer()
             try: output = requests.post(url, data=json_request, timeout=0.5) # Don't hang on one frame
             except: continue
-            print(sys.getsizeof(json_request), timer()-beg)
+            print("PNG   : {} bytes in {}s".format(sys.getsizeof(json_request), timer()-beg))
         
         # Get predictions from response
             try:
@@ -208,7 +208,6 @@ if __name__ == "__main__":
 
         # If there was feedback detected
         if max(predictions[0]) == 1:
-            print("Feedback!")
             
             vectors = np.asarray(predictions, dtype=np.int8)
             
