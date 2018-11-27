@@ -15,7 +15,7 @@ class audioSPI:
         self.spi.open(0, 0) # open spi port 0, device (CS) 0
 
         # SPI Configuration
-        self.spi.max_speed_hz = int(1.953E6)
+        self.spi.max_speed_hz = int(4.88E5)
         self.spi.cshigh = False
         self.spi.mode = 0b01
 
