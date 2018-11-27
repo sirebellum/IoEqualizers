@@ -12,6 +12,7 @@ parser.add_argument("model_id", help='relative path to model to be loaded.')
 parser.add_argument("wav", help='relative path to wav to process. "spi" otherwise')
 parser.add_argument("--vis", default='True', help='Plot FFT or not.')
 parser.add_argument("--server", default='192.168.12.3', help='Models version number.')
+parser.add_argument("--suppress", default='True', help='Models version number.')
 args = parser.parse_args()
 
 # Server data
@@ -219,7 +220,8 @@ if __name__ == "__main__":
                 spi_vector = np.packbits(spi_vector).tolist()
                 
                 # Send to slave
-                comm.put_payload(spi_vector)
+                if args.suppress == "True":
+                    comm.put_payload(spi_vector)
             
             # Visualization
             if args.vis == 'True':               
