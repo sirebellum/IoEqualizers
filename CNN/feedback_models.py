@@ -13,7 +13,7 @@ WIDTH = ap.WIDTH
 NUMCLASSES = 2
 
 NOIS_MEAN = 0.0
-NOISE_STD = 0.05
+NOISE_STD = 0.07
 def gaussian_noise_layer(input_layer, std):
     noise = tf.random_normal(shape=tf.shape(input_layer), mean=NOIS_MEAN, stddev=std, dtype=tf.float32) 
     return input_layer + noise
